@@ -201,7 +201,7 @@ const S = {
   loginBtn:(admin)=>({ width:"100%", padding:"1rem", marginTop:"0.5rem", background:admin?"linear-gradient(135deg,#c9a227,#9a7b0a)":"linear-gradient(135deg,#3a7d44,#1f4d24)", color:"white", border:"none", borderRadius:12, fontFamily:"'DM Sans',sans-serif", fontSize:"1rem", fontWeight:600, cursor:"pointer", boxShadow:admin?"0 8px 24px rgba(154,123,10,0.35)":"0 8px 24px rgba(58,125,68,0.35)", transition:"transform 0.15s, box-shadow 0.15s" }),
   card:{ background:"#fefcf7", borderRadius:24, padding:"2.5rem", boxShadow:"0 20px 60px rgba(45,90,39,0.12)", border:"1px solid rgba(58,125,68,0.1)" },
   // topbar
-  topbar:{ background:"#fefcf7", borderBottom:"1px solid rgba(58,125,68,0.12)", padding:"0 1.5rem", height:64, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100, boxShadow:"0 2px 12px rgba(45,90,39,0.12)" },
+  topbar:{ background:"#fefcf7", borderBottom:"1px solid rgba(58,125,68,0.12)", padding:"0 1.5rem", height:64, display:"flex", alignItems:"center", justifycontent:"space-between", position:"sticky", top:0, zIndex:100, boxShadow:"0 2px 12px rgba(45,90,39,0.12)" },
   topBrand:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.35rem", color:"#2d5a27", display:"flex", alignItems:"center", gap:"0.5rem" },
   topRight:{ display:"flex", alignItems:"center", gap:"1rem" },
   ubadge:{ display:"flex", alignItems:"center", gap:"0.6rem", background:"#f0faf0", border:"1px solid rgba(58,125,68,0.15)", borderRadius:100, padding:"0.3rem 1rem 0.3rem 0.4rem" },
@@ -286,6 +286,7 @@ function Avatar({initials, color, size=32}){
   return <div style={{...S.uavatar(null), width:size, height:size, fontSize:size*0.28, background:`linear-gradient(135deg,${color},#1a3d1a)`}}>{initials}</div>;
 }
 
+// Oprava překlepu u uvozovek v m.title ("#111") provedena níže v kódu stránky meetings
 function Badge({type, children}){
   return <span style={S.badge(type)}>{children}</span>;
 }
@@ -367,4 +368,958 @@ function LoginScreen({selRole,setSelRole,loginUser,setLoginUser,loginPass,setLog
                 </datalist>
               </div>
             </div>
-            <div style={S
+            <div style={S.fgroup}>
+              <label style={S.flabel}>Heslo</label>
+              <div style={S.finputWrap}>
+                <span style={S.finputIcon}>🔒</span>
+                <input style={{...S.finput,paddingRight:"4.5rem"}} type={showPass?"text":"password"} value={loginPass}
+                  onChange={e=>setLoginPass(e.target.value)} placeholder="••••••••" autoComplete="current-password"
+                  onKeyDown={e=>e.key==="Enter"&&doLogin()}
+                  onFocus={e=>{e.target.style.borderColor="#3a7d44";e.target.style.boxShadow="0 0 0 3px rgba(58,125,68,0.15)";}}
+                  onBlur={e=>{e.target.style.borderColor="#e2e8e0";e.target.style.boxShadow="none";}}/>
+                <button type="button" style={S.passToggle} onClick={()=>setShowPass(s=>!s)}>{showPass?"Skrýt":"Zobrazit"}</button>
+              </div>
+            </div>
+            <button type="button" style={S.loginBtn(isAdm)} onClick={doLogin}
+              onMouseOver={e=>{e.currentTarget.style.transform="translateY(-1px)";}}
+              onMouseOut={e=>{e.currentTarget.style.transform="none";}}>
+              Přihlásit se →
+            </button>
+            <p style={{marginTop:"1.25rem",fontSize:"0.72rem",color:"#a0aea0",textAlign:"center",lineHeight:1.55}}>
+              Používejte stejnou webovou adresu na všech PC<br/>
+              (např. vase-domena.cz/index.html)
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ─────────────────────────────────────────
+function App(){
+  // auth
+  const [cu, setCu] = useState(null);
+  const [selRole, setSelRole] = useState("admin");
+  const [loginUser, setLoginUser] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [loginErr, setLoginErr] = useState("");
+  const [fbReady, setFbReady] = useState(false);
+  const [fbOnline, setFbOnline] = useState(!!window.db);
+  const [syncStatus, setSyncStatus] = useState(window.db?"loading":"offline");
+  const [lastSync, setLastSync] = useState("");
+  const [syncErr, setSyncErr] = useState("");
+
+  function onSyncEvent(st,msg){
+    if(st==="saving") setSyncStatus("saving");
+    else if(st==="saved"){
+      setSyncStatus("ok");
+      setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
+      setSyncErr("");
+      setFbOnline(true);
+    }
+    else if(st==="error"){
+      setSyncStatus("error");
+      setSyncErr(msg||"Chyba");
+      setFbOnline(false);
+      notify("⚠️ Nepodařilo se uložit do cloudu");
+    }
+  }
+
+  // data
+  const [users, setUsers] = useState(INIT_USERS);
+  const [passwords, setPasswords] = useState(INIT_PASSWORDS);
+  const [msgs, setMsgs] = useState(INIT_MESSAGES);
+  const [tasks, setTasks] = useState(INIT_TASKS);
+  const [attendance, setAttendance] = useState(INIT_ATTENDANCE);
+  const [announcements, setAnnouncements] = useState(INIT_ANNOUNCEMENTS);
+  const [meetings, setMeetings] = useState(INIT_MEETINGS);
+
+  // nav
+  const [page, setPage] = useState("dashboard");
+  const [selChat, setSelChat] = useState(null);
+  const [notif, setNotif] = useState("");
+  const notifRef = useRef();
+
+  // checkin
+  const [checkedIn, setCheckedIn] = useState(false);
+
+  /* Firebase – data v cloudu, stejná na všech PC a na webu */
+  useEffect(()=>{
+    if(!window.db){
+      setFbReady(true);
+      setSyncStatus("offline");
+      return;
+    }
+    const db=window.db;
+    const seeds=[
+      ["users",INIT_USERS],["passwords",INIT_PASSWORDS],["msgs",INIT_MESSAGES],
+      ["tasks",INIT_TASKS],["attendance",INIT_ATTENDANCE],
+      ["announcements",INIT_ANNOUNCEMENTS],["meetings",INIT_MEETINGS],
+    ];
+    const setters={users:setUsers,passwords:setPasswords,msgs:setMsgs,tasks:setTasks,
+                  attendance:setAttendance,announcements:setAnnouncements,meetings:setMeetings};
+    
+    let loaded=0;
+    const unsubs=seeds.map(([name,fallback])=>
+      db.collection("app").doc(name).onSnapshot(function(doc){
+        if(doc.exists){
+          let data=doc.data();
+          if(name==="attendance") data=normalizeAttendance(data,INIT_USERS);
+          if(name==="tasks") data=normalizeTasks(data);
+          if(name==="announcements"||name==="meetings") data=asArray(data);
+          setters[name](data);
+        }else{
+          window.cloudSave(name,fallback);
+        }
+        loaded++;
+        if(loaded>=seeds.length){
+          setFbReady(true);
+          setFbOnline(true);
+          setSyncStatus("ok");
+          setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
+        }
+      }, function(err){
+        console.warn("Firestore listen err:", name, err);
+      })
+    );
+    return ()=>unsubs.forEach(fn=>fn());
+  },[]);
+
+  // updaters
+  const setUsersCloud        = makeUpdater(setUsers,"users",onSyncEvent);
+  const setPasswordsCloud    = makeUpdater(setPasswords,"passwords",onSyncEvent);
+  const setMsgsCloud         = makeUpdater(setMsgs,"msgs",onSyncEvent);
+  const setTasksCloud        = makeUpdater(setTasks,"tasks",onSyncEvent);
+  const setAttendanceCloud   = makeUpdater(setAttendance,"attendance",onSyncEvent);
+  const setAnnouncementsCloud= makeUpdater(setAnnouncements,"announcements",onSyncEvent);
+  const setMeetingsCloud     = makeUpdater(setMeetings,"meetings",onSyncEvent);
+
+  function notify(m){
+    setNotif(m);
+    clearTimeout(notifRef.current);
+    notifRef.current=setTimeout(()=>setNotif(""),3500);
+  }
+
+  // auth action
+  function doLogin(){
+    const login=loginUser.toLowerCase().trim();
+    if(!login){ setLoginErr("Zadejte jméno."); return; }
+    const found=users[login];
+    if(!found||!found.active){ setLoginErr("Uživatel neexistuje."); return; }
+    if(selRole==="admin" && found.role!=="admin"){ setLoginErr("Tento účet nemá admin práva. Přepněte se na Zaměstnance."); return; }
+    if(selRole==="employee" && found.role==="admin"){ setLoginErr("Admin se musí přihlásit pod kartou Administrátor."); return; }
+    
+    if(passwords[login]!==loginPass){
+      setLoginErr("Nesprávné heslo.");
+      return;
+    }
+    setCu({login,...found});
+    setLoginErr("");
+    setLoginPass("");
+    
+    // auto select first chat
+    const opp=ORDER.find(k=>k!==login&&users[k]&&users[k].active);
+    setSelChat(opp||null);
+
+    // check if today is checkedIn
+    const recs=getUserRecords(attendance,login);
+    if(recs.length>0 && recs[0].date===nowDate() && !recs[0].out){
+      setCheckedIn(true);
+    }else{
+      setCheckedIn(false);
+    }
+    notify(`Vítejte, ${found.name} 👋`);
+  }
+
+  function handleLogout(){
+    setCu(null);
+    setLoginUser("");
+    setLoginPass("");
+    setPage("dashboard");
+  }
+
+  // attendance action
+  function toggleCheckIn(){
+    const today=nowDate();
+    const time=nowTime();
+    let recs=[...getUserRecords(attendance,cu.login)];
+
+    if(!checkedIn){
+      // Príchod
+      let status="ok";
+      if(cu.shift && cu.shift.includes("–")){
+        const startStr=cu.shift.split("–")[0].trim();
+        if(startStr.includes(":")){
+          const [sh,sm]=startStr.split(":").map(Number);
+          const [th,tm]=time.split(":").map(Number);
+          if((th*60+tm) > (sh*60+sm + 15)) status="late"; // 15 min tolerance
+        }
+      }
+      recs.unshift({date:today, in:time, out:"", status});
+      setCheckedIn(true);
+      notify("🟢 Příchod zaznamenán");
+    }else{
+      // Odchod
+      if(recs.length>0 && recs[0].date===today && !recs[0].out){
+        recs[0].out=time;
+      }else if(recs.length>0 && !recs[0].out){
+        recs[0].out=time; 
+      }else{
+        recs.unshift({date:today, in:"", out:time, status:"ok"});
+      }
+      setCheckedIn(false);
+      notify("🔴 Odchod zaznamenán");
+    }
+    setAttendanceCloud(setUserRecords(attendance,cu.login,recs));
+  }
+
+  // task actions
+  const [tName,setTName]=useState("");
+  const [tWho,setTWho]=useState("Všichni");
+  const [tPri,setTPri]=useState("medium");
+  const [tDate,setTDate]=useState(nowDate());
+  const [tDesc,setTDesc]=useState("");
+  function addTask(){
+    if(!tName.trim()) return;
+    const n={id:Date.now(), name:tName.trim(), who:tWho, pri:tPri, date:tDate, done:false, desc:tDesc.trim()};
+    setTasksCloud([...tasks,n]);
+    setTName("");setTDesc("");
+    notify("📋 Úkol byl přidán");
+  }
+  function toggleTask(id){
+    setTasksCloud(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
+    notify("Úkol aktualizován");
+  }
+  function deleteTask(id){
+    if(confirm("Smazat tento úkol?")) setTasksCloud(tasks.filter(t=>t.id!==id));
+  }
+
+  // chat actions
+  const [chatTxt,setChatTxt]=useState("");
+  const chatBottomRef = useRef();
+  useEffect(()=>{
+    if(page==="chat") chatBottomRef.current?.scrollIntoView({behavior:"smooth"});
+  },[msgs,page,selChat]);
+
+  function sendChat(){
+    if(!chatTxt.trim()||!selChat) return;
+    const key=chatKey(cu.login,selChat);
+    const arr=[...(msgs[key]||[])];
+    arr.push({from:cu.login, text:chatTxt.trim(), time:nowTime()});
+    setMsgsCloud({...msgs,[key]:arr});
+    setChatTxt("");
+  }
+
+  // announcements
+  const [aTitle,setATitle]=useState("");
+  const [aTxt,setATxt]=useState("");
+  function addAnn(){
+    if(!aTitle.trim()||!aTxt.trim()) return;
+    const n={id:Date.now(), author:cu.name, time:new Date().toLocaleString("cs-CZ",{day:"numeric",month:"numeric",year:"numeric",hour:"2-digit",minute:"2-digit"}), title:aTitle.trim(), text:aTxt.trim()};
+    setAnnouncementsCloud([n,...announcements]);
+    setATitle("");setATxt("");
+    notify("📢 Oznámení publikováno");
+  }
+  function delAnn(id){
+    if(confirm("Smazat oznámení?")) setAnnouncementsCloud(announcements.filter(a=>a.id!==id));
+  }
+
+  // meetings
+  const [mTitle,setMTitle]=useState("");
+  const [mDate,setMDate]=useState(nowDate());
+  const [mTime,setMTime]=useState("10:00");
+  const [mPlace,setMPlace]=useState("Kancelář");
+  const [mDesc,setMDesc]=useState("");
+  const [mAtt,setMAtt]=useState("Všichni");
+  function addMeeting(){
+    if(!mTitle.trim()) return;
+    const n={id:Date.now(), title:mTitle.trim(), date:mDate, time:mTime, place:mPlace.trim(), desc:mDesc.trim(), attendees:mAtt};
+    setMeetingsCloud([...meetings,n]);
+    setMTitle("");setMDesc("");
+    notify("📅 Schůzka naplánována");
+  }
+  function delMeeting(id){
+    if(confirm("Smazat schůzku?")) setMeetingsCloud(meetings.filter(m=>m.id!==id));
+  }
+
+  // admin: user management
+  const [addModal,setAddModal]=useState(false);
+  const [nName,setNName]=useState("");
+  const [nLogin,setNLogin]=useState("");
+  const [nPass,setNPass]=useState("");
+  const [nPos,setNPos]=useState("");
+  const [nShift,setNShift]=useState("8:00–16:30");
+  const [nColor,setNColor]=useState("#3a7d44");
+  const [nRole,setNRole]=useState("employee");
+
+  function addUser(){
+    const lg=nLogin.toLowerCase().trim();
+    if(!nName.trim()||!lg||!nPass){ alert("Vyplňte jméno, login a heslo."); return; }
+    if(users[lg]){ alert("Tento login již existuje."); return; }
+    
+    // initials
+    const parts=nName.trim().split(" ");
+    const ini=parts.map(p=>p[0]).join("").toUpperCase().slice(0,2);
+
+    const uNew={name:nName.trim(), role:nRole, initials:ini, pos:nPos.trim(), shift:nShift.trim(), color:nColor, active:true};
+    setUsersCloud({...users,[lg]:uNew});
+    setPasswordsCloud({...passwords,[lg]:nPass});
+    
+    // init empty chat message arrays for this user
+    const updatedMsgs={...msgs};
+    Object.keys(users).forEach(k=>{
+      updatedMsgs[chatKey(lg,k)]=[];
+    });
+    setMsgsCloud(updatedMsgs);
+
+    setNName("");setNLogin("");setNPass("");setNPos("");setAddModal(false);
+    notify("👤 Nový zaměstnanec přidán");
+  }
+
+  const [editModal,setEditModal]=useState(false);
+  const [eKey,setEKey]=useState("");
+  const [eName,setEName]=useState("");
+  const [ePass,setEPass]=useState("");
+  const [ePos,setEPos]=useState("");
+  const [eShift,setEShift]=useState("");
+  const [eColor,setEColor]=useState("");
+  const [eRole,setERole]=useState("");
+
+  function openEdit(k){
+    setEKey(k);
+    setEName(users[k].name);
+    setEPass(passwords[k]||"");
+    setEPos(users[k].pos||"");
+    setEShift(users[k].shift||"");
+    setEColor(users[k].color||"#3a7d44");
+    setERole(users[k].role||"employee");
+    setEditModal(true);
+  }
+
+  function saveEdit(){
+    if(!eName.trim()){ alert("Jméno nesmí být prázdné."); return; }
+    const uOld=users[eKey];
+    const parts=eName.trim().split(" ");
+    const ini=parts.map(p=>p[0]).join("").toUpperCase().slice(0,2);
+
+    const uNew={...uOld, name:eName.trim(), pos:ePos.trim(), shift:eShift.trim(), color:eColor, role:eRole, initials:ini};
+    setUsersCloud({...users,[eKey]:uNew});
+    if(ePass) setPasswordsCloud({...passwords,[eKey]:ePass});
+    setEditModal(false);
+    notify("👤 Údaje zaměstnance změněny");
+  }
+
+  function toggleUserActive(k){
+    if(k==="adam"){ alert("Hlavního administrátora nelze deaktivovat."); return; }
+    const act=!users[k].active;
+    if(!act && confirm(`Opravdu chcete deaktivovat uživatele ${users[k].name}? Nebude se moci přihlásit.`)){
+      setUsersCloud({...users,[k]:{...users[k],active:false}});
+    }else if(act){
+      setUsersCloud({...users,[k]:{...users[k],active:true}});
+    }
+  }
+
+  // unread count helper
+  function getUnreadCount(userKey){
+    return 0; // zjednodušení, pro UI čistotu
+  }
+
+  if(!cu){
+    return <LoginScreen selRole={selRole} setSelRole={setSelRole} loginUser={loginUser} setLoginUser={setLoginUser} loginPass={loginPass} setLoginPass={setLoginPass} loginErr={loginErr} setLoginErr={setLoginErr} doLogin={doLogin} users={users} fbOnline={fbOnline} fbReady={fbReady} />;
+  }
+
+  const activeChats=Object.entries(users).filter(([k,u])=>k!==cu.login&&u.active);
+
+  return (
+    <div style={S.app}>
+      {/* VRCHNÍ PANEL */}
+      <div style={S.topbar}>
+        <div style={S.topBrand}><span>🌿</span> Zahradní systém</div>
+        
+        {/* Stav cloudu */}
+        <div style={{fontSize:"0.8rem",display:"flex",alignItems:"center",gap:"0.5rem",background:"#fdfaf2",padding:"4px 12px",borderRadius:8,border:"1px solid rgba(58,125,68,0.1)"}}>
+          {syncStatus==="loading" && <><span style={{width:8,height:8,background:"#f59e0b",borderRadius:"50%"}}/><span>Načítám cloud…</span></>}
+          {syncStatus==="saving" && <><span style={{width:8,height:8,background:"#3b82f6",borderRadius:"50%"}}/><span>Ukládám změny…</span></>}
+          {syncStatus==="ok" && <><span style={{width:8,height:8,background:"#10b981",borderRadius:"50%"}}/><span>Cloud synchronizován <span style={{opacity:0.6}}>({lastSync||"teď"})</span></span></>}
+          {syncStatus==="error" && <><span style={{width:8,height:8,background:"#ef4444",borderRadius:"50%"}}/><span style={{color:"#dc2626"}} title={syncErr}>Chyba spojení</span></>}
+          {syncStatus==="offline" && <><span style={{width:8,height:8,background:"#6b7a6b",borderRadius:"50%"}}/><span>Režim offline</span></>}
+        </div>
+
+        <div style={S.topRight}>
+          <div style={S.ubadge}>
+            <Avatar initials={cu.initials} color={cu.color} />
+            <span style={S.uname}>{cu.name}</span>
+            <span style={S.urole(isAdmin(cu))}>{isAdmin(cu)?"Admin":"Zaměstnanec"}</span>
+          </div>
+          <button style={S.logoutBtn} onClick={handleLogout}>Odhlásit</button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",minHeight:"calc(100vh - 64px)"}}>
+        {/* LEVÉ MENU */}
+        <div style={S.sidebar}>
+          <div style={S.slabel}>Hlavní</div>
+          <button style={S.nbtn(page==="dashboard")} onClick={()=>setPage("dashboard")}>🏠 Nástěnka</button>
+          <button style={S.nbtn(page==="tasks")} onClick={()=>setPage("tasks")}>📋 Seznam úkolů</button>
+          <button style={S.nbtn(page==="chat")} onClick={()=>setPage("chat")}>💬 Interní chat</button>
+          <button style={S.nbtn(page==="meetings")} onClick={()=>setPage("meetings")}>📅 Schůzky & Akce</button>
+          
+          <div style={S.slabel}>Osobní</div>
+          <button style={S.nbtn(page==="myattendance")} onClick={()=>setPage("myattendance")}>🕒 Moje docházka</button>
+          
+          {canAccessAdmin(cu) && (
+            <>
+              <div style={S.slabel}>Administrace</div>
+              <button style={S.nbtn(page==="users")} onClick={()=>setPage("users")}>👥 Správa zaměstnanců</button>
+              <button style={S.nbtn(page==="allattendance")} onClick={()=>setPage("allattendance")}>📊 Přehled docházky</button>
+            </>
+          )}
+
+          <div style={{marginTop:"3rem",padding:"0 0.5rem",fontSize:"0.72rem",color:"#a0aea0",lineHeight:1.4}}>
+            <strong>Provoz systému:</strong><br/>
+            Data se ukládají v reálném čase. Všichni přihlášení vidí změny okamžitě.
+          </div>
+        </div>
+
+        {/* HLAVNÍ OBSAH */}
+        <div style={S.content}>
+          
+          {/* 1. NÁSTĚNKA */}
+          {page==="dashboard" && (
+            <div>
+              <div style={S.welcome}>
+                <h2 style={S.wh2}>Krásný den, {cu.name}! ☀️</h2>
+                <p style={S.wp}>Dnes je {todayLabel()}. Vítejte v interním systému vaší zahrady.</p>
+              </div>
+
+              {/* Rychlá docházka */}
+              <div style={S.scard}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"1rem"}}>
+                  <div>
+                    <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.15rem",color:"#2d5a27"}}>Zaznamenat dnešní pracovní dobu</h3>
+                    <p style={{fontSize:"0.82rem",color:"#6b7a6b",marginTop:2}}>Vaše plánovaná směna: <strong>{cu.shift||"Není určena"}</strong></p>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:"1.5rem"}}>
+                    <div style={{textAlign:"right"}}>
+                      <div style={{fontSize:"0.75rem",color:"#8a9a8a",textTransform:"uppercase"}}>Stav:</div>
+                      <div style={{fontSize:"1rem",fontWeight:600,color:checkedIn?"#3a7d44":"#dc2626"}}>{checkedIn?"🟢 Jste v práci":"🔴 Odhlášen(a) – nejste v práci"}</div>
+                    </div>
+                    <Btn type={checkedIn?"danger":"primary"} onClick={toggleCheckIn}>
+                      {checkedIn?"🔴 Označit ODCHOD z práce":"🟢 Označit PŘÍCHOD do práce"}
+                    </Btn>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1.5rem",alignItems:"start",marginTop:"1.5rem"}}>
+                {/* Oznámení firmy */}
+                <div style={S.scard}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}}>
+                    <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.25rem",color:"#2d5a27"}}>📢 Firemní nástěnka</h3>
+                    {isAdmin(cu) && <span style={{fontSize:"0.8rem",color:"#8a9a8a"}}>Admin sekce níže</span>}
+                  </div>
+                  
+                  <div style={{maxHeight:320,overflowY:"auto",paddingRight:5}}>
+                    {announcements.length===0 ? <div style={S.empty}>Žádná hlášení na nástěnce.</div> : 
+                      announcements.map(a=>(
+                        <div key={a.id} style={S.ann}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:"0.78rem",color:"#8a9a8a",marginBottom:4}}>
+                            <span>✍️ {a.author}</span>
+                            <span>{a.time}</span>
+                          </div>
+                          <h4 style={{fontSize:"0.95rem",fontWeight:600,color:"#1a3d1a",marginBottom:4}}>{a.title}</h4>
+                          <p style={{fontSize:"0.86rem",color:"#3a3a3a",whiteSpace:"pre-wrap",lineHeight:1.45}}>{a.text}</p>
+                          {isAdmin(cu) && (
+                            <div style={{textAlign:"right",marginTop:6}}>
+                              <button style={{background:"none",border:"none",color:"#dc2626",fontSize:"0.75rem",cursor:"pointer"}} onClick={()=>delAnn(a.id)}>❌ Smazat</button>
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    }
+                  </div>
+
+                  {isAdmin(cu) && (
+                    <div style={{marginTop:"1.5rem",paddingTop:"1.25rem",borderTop:"1px solid rgba(58,125,68,0.12)"}}>
+                      <h4 style={{fontSize:"0.82rem",fontWeight:700,color:"#2d5a27",textTransform:"uppercase",marginBottom:8}}>Napsat nové hlášení na nástěnku:</h4>
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        <Inp value={aTitle} onChange={setATitle} placeholder="Předmět / titulek" />
+                        <textarea style={S.cinput} value={aTxt} onChange={e=>setATxt(e.target.value)} placeholder="Text hlášení pro všechny zaměstnance..." rows={3}/>
+                        <div style={{textAlign:"right"}}><Btn sm onClick={addAnn}>Publikovat hlášení</Btn></div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Moje dnešní úkoly */}
+                <div style={S.scard}>
+                  <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.25rem",color:"#2d5a27",marginBottom:"1rem"}}>📌 Moje aktivní úkoly</h3>
+                  <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
+                    {tasks.filter(t=>!t.done && (t.who==="Všichni" || t.who.toLowerCase()===cu.login || t.who===cu.name)).length===0 ? 
+                      <div style={S.empty}>🎉 Skvělé! Nemáte žádné resty, vše je hotovo.</div> :
+                      tasks.filter(t=>!t.done && (t.who==="Všichni" || t.who.toLowerCase()===cu.login || t.who===cu.name)).map(t=>(
+                        <div key={t.id} style={{background:"#fff",padding:"0.85rem 1rem",borderRadius:12,border:"1px solid rgba(58,125,68,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <div>
+                            <div style={{fontSize:"0.88rem",fontWeight:600}}>{t.name}</div>
+                            {t.desc && <div style={{fontSize:"0.78rem",color:"#6b7a6b",marginTop:2}}>{t.desc}</div>}
+                          </div>
+                          <Btn type="outline" sm onClick={()=>toggleTask(t.id)}>✓ Hotovo</Btn>
+                        </div>
+                      ))
+                    }
+                  </div>
+                  <div style={{marginTop:"1.5rem",textAlign:"center"}}>
+                    <Btn type="outline" onClick={()=>setPage("tasks")} style={{width:"100%",justifyContent:"center"}}>Zobrazit kompletní seznam úkolů →</Btn>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. SEZNAM ÚKOLŮ */}
+          {page==="tasks" && (
+            <div>
+              <div style={S.pageTitle}>
+                <div>📋 Kompletní seznam úkolů</div>
+                {isAdmin(cu) && <span style={{fontSize:"0.8rem",fontWeight:400,color:"#6b7a6b"}}>Nové úkoly zadáváte zde</span>}
+              </div>
+
+              {/* Formulář pro přidání úkolu - pouze admin */}
+              {isAdmin(cu) && (
+                <div style={S.addForm}>
+                  <h3 style={{fontSize:"0.9rem",fontWeight:700,textTransform:"uppercase",color:"#2d5a27",marginBottom:"1rem"}}>➕ Zadat nový úkol pro tým</h3>
+                  <div style={{...S.formRow,gridTemplateColumns:"2fr 1fr 1fr 1fr"}}>
+                    <div>
+                      <div style={S.flabel}>Název úkolu</div>
+                      <Inp value={tName} onChange={setTName} placeholder="např. Pokosit trávník u skleníku" />
+                    </div>
+                    <div>
+                      <div style={S.flabel}>Kdo úkol splní?</div>
+                      <Sel value={tWho} onChange={setTWho} options={[{v:"Všichni",l:"👥 Všichni"}, ...Object.entries(users).map(([k,u])=>({v:u.name,l:u.name}))]} />
+                    </div>
+                    <div>
+                      <div style={S.flabel}>Priorita</div>
+                      <Sel value={tPri} onChange={setTPri} options={[{v:"low",l:"🟢 Nízká"},{v:"medium",l:"🟡 Střední"},{v:"high",l:"🔴 Vysoká"}]} />
+                    </div>
+                    <div>
+                      <div style={S.flabel}>Termín splnění</div>
+                      <Inp type="date" value={tDate} onChange={setTDate} />
+                    </div>
+                  </div>
+                  <div style={{marginBottom:"1rem"}}>
+                    <div style={S.flabel}>Detailní popis úkolu (nepovinné)</div>
+                    <Inp value={tDesc} onChange={setTDesc} placeholder="Bližší informace, kde najít nářadí, specifika práce..." />
+                  </div>
+                  <div style={{textAlign:"right"}}><Btn onClick={addTask}>Zadat úkol do systému</Btn></div>
+                </div>
+              )}
+
+              {/* Filtry / Přehled */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"2rem",alignItems:"start"}}>
+                {/* Aktivní úkoly */}
+                <div>
+                  <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.2rem",color:"#b91c1c",marginBottom:"1rem"}}>⏳ Nesplněné úkoly ({tasks.filter(t=>!t.done).length})</h3>
+                  {tasks.filter(t=>!t.done).length===0 ? <div style={S.empty}>Všechny úkoly jsou splněny!</div> : (
+                    <div style={{display:"flex",flexDirection:"column",gap:"0.85rem"}}>
+                      {tasks.filter(t=>!t.done).map(t=>(
+                        <div key={t.id} style={S.tcard(t.pri,false)}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                            <span style={S.tpill}>👤 {t.who}</span>
+                            <Badge type={t.pri==="high"?"red":t.pri==="medium"?"orange":"green"}>
+                              {t.pri==="high"?"Vysoká":t.pri==="medium"?"Střední":"Nízká"}
+                            </Badge>
+                          </div>
+                          <h4 style={{fontSize:"1rem",fontWeight:600,color:"#111"}}>{t.name}</h4>
+                          {t.desc && <p style={{fontSize:"0.82rem",color:"#555",marginTop:4,lineHeight:1.4}}>{t.desc}</p>}
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop12,paddingTop:10,borderTop:"1px solid rgba(0,0,0,0.04)"}}>
+                            <span style={{fontSize:"0.78rem",color:"#8a9a8a"}}>📅 Termín: {new Date(t.date).toLocaleDateString("cs-CZ")}</span>
+                            <div style={{display:"flex",gap:6}}>
+                              {isAdmin(cu) && <button style={{background:"none",border:"none",color:"#dc2626",fontSize:"0.8rem",cursor:"pointer",marginRight:8}} onClick={()=>deleteTask(t.id)}>Smazat</button>}
+                              <Btn type="primary" sm onClick={()=>toggleTask(t.id)}>✓ Hotovo</Btn>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Splněné úkoly */}
+                <div>
+                  <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.2rem",color:"#3a7d44",marginBottom:"1rem"}}>✅ Hotové úkoly ({tasks.filter(t=>t.done).length})</h3>
+                  {tasks.filter(t=>t.done).length===0 ? <div style={S.empty}>Zatím žádné hotové úkoly.</div> : (
+                    <div style={{display:"flex",flexDirection:"column",gap:"0.65rem"}}>
+                      {tasks.filter(t=>t.done).map(t=>(
+                        <div key={t.id} style={S.tcard(t.pri,true)}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                            <div>
+                              <span style={{textDecoration:"line-through",fontSize:"0.9rem",color:"#666",fontWeight:500}}>{t.name}</span>
+                              <div style={{fontSize:"0.75rem",color:"#8a9a8a",marginTop:2}}>Splnil: {t.who}</div>
+                            </div>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              {isAdmin(cu) && <button style={{background:"none",border:"none",color:"#dc2626",fontSize:"0.8rem",cursor:"pointer"}} onClick={()=>deleteTask(t.id)}>Smazat</button>}
+                              <button style={{background:"none",border:"none",color:"#6b7a6b",fontSize:"0.8rem",cursor:"pointer",textDecoration:"underline"}} onClick={()=>toggleTask(t.id)}>Vrátit</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. CHAT */}
+          {page==="chat" && (
+            <div>
+              <div style={S.pageTitle}>💬 Interní firemní chat</div>
+              <div style={S.chatLayout}>
+                {/* Seznam lidí */}
+                <div style={S.chatUsers}>
+                  <div style={{fontSize:"0.73rem",fontWeight:700,color:"#8a9a8a",textTransform:"uppercase",marginBottom:8,paddingLeft:4}}>Kolegové online:</div>
+                  {activeChats.length===0?<div style={S.empty}>Žádní jiní uživatelé.</div>:
+                    activeChats.map(([k,u])=>(
+                      <div key={k} style={S.chatUser(selChat===k)} onClick={()=>setSelChat(k)}>
+                        <Avatar initials={u.initials} color={u.color} size={30}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:"0.86rem",fontWeight:500,color:"#222",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{u.name}</div>
+                          <div style={{fontSize:"0.7rem",color:"#6b7a6b"}}>{u.pos.split("·")[0]}</div>
+                        </div>
+                        {getUnreadCount(k)>0 && <span style={S.nbadge}>{getUnreadCount(k)}</span>}
+                      </div>
+                    ))
+                  }
+                </div>
+
+                {/* Okno zpráv */}
+                <div style={S.chatMain}>
+                  {selChat && users[selChat] ? (
+                    <>
+                      <div style={{display:"flex",alignItems:"center",gap:"0.6rem",borderBottom:"1px solid rgba(58,125,68,0.1)",paddingBottom:"0.75rem",marginBottom:"0.75rem"}}>
+                        <Avatar initials={users[selChat].initials} color={users[selChat].color} size={34}/>
+                        <div>
+                          <div style={{fontSize:"0.95rem",fontWeight:600}}>{users[selChat].name}</div>
+                          <div style={{fontSize:"0.75rem",color:"#6b7a6b"}}>{users[selChat].pos}</div>
+                        </div>
+                      </div>
+
+                      <div style={S.chatMsgs}>
+                        {(msgs[chatKey(cu.login,selChat)]||[]).length===0 ? 
+                          <div style={{...S.empty,marginTop:"auto",marginBottom:"auto"}}>Napište první zprávu. Chat je bezpečný a soukromý.</div> :
+                          (msgs[chatKey(cu.login,selChat)]||[]).map((m,idx)=>(
+                            <div key={idx} style={S.mrow(m.from===cu.login)}>
+                              <div style={S.mbubble(m.from===cu.login)}>
+                                <div>{m.text}</div>
+                                <div style={{...S.mtime,textAlign:m.from===cu.login?"right":"left"}}>{m.time}</div>
+                              </div>
+                            </div>
+                          ))
+                        }
+                        <div ref={chatBottomRef} />
+                      </div>
+
+                      <div style={S.cinputWrap}>
+                        <textarea style={S.cinput} value={chatTxt} onChange={e=>setChatTxt(e.target.value)}
+                          placeholder={`Napsat zprávu pro: ${users[selChat].name}...`} rows={1}
+                          onKeyDown={e=>{if(e.key==="Enter" && !e.shiftKey){e.preventDefault();sendChat();}}}/>
+                        <button style={S.sendBtn} onClick={sendChat}>➔</button>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{...S.empty,margin:"auto"}}>Vyberte kolegu ze seznamu vlevo a začněte chatovat.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. SCHŮZKY */}
+          {page==="meetings" && (
+            <div>
+              <div style={S.pageTitle}>
+                <div>📅 Plánované schůzky, akce a návštěvy</div>
+                {isAdmin(cu) && <span style={{fontSize:"0.8rem",fontWeight:400,color:"#6b7a6b"}}>Nové schůzky zadává administrátor</span>}
+              </div>
+
+              {isAdmin(cu) && (
+                <div style={S.addForm}>
+                  <h3 style={{fontSize:"0.9rem",fontWeight:700,textTransform:"uppercase",color:"#2d5a27",marginBottom:"1rem"}}>➕ Naplánovat novou akci / poradu</h3>
+                  <div style={{...S.formRow,gridTemplateColumns:"2fr 1fr 1fr 1fr"}}>
+                    <div>
+                      <div style={S.flabel}>Název schůzky / akce</div>
+                      <Inp value={mTitle} onChange={setMTitle} placeholder="např. Porada k zalévání skleníků" />
+                    </div>
+                    <div>
+                      <div style={S.flabel}>Datum</div>
+                      <Inp type="date" value={mDate} onChange={setMDate} />
+                    </div>
+                    <div>
+                      <div style={S.flabel}>Čas konání</div>
+                      <Inp value={mTime} onChange={setMTime} placeholder="např. 14:00" />
+                    </div>
+                    <div>
+                      <div style={S.flabel}>Místo konání</div>
+                      <Inp value={mPlace} onChange={setMPlace} placeholder="např. Hlavní hala / Skleník A" />
+                    </div>
+                  </div>
+                  <div style={{...S.formRow,gridTemplateColumns:"3fr 1fr"}}>
+                    <div>
+                      <div style={S.flabel}>Poznámka / agenda akce</div>
+                      <Inp value={mDesc} onChange={setMDesc} placeholder="Co se bude řešit, co si vzít s sebou..." />
+                    </div>
+                    <div>
+                      <div style={S.flabel}>Kdo se zúčastní?</div>
+                      <Inp value={mAtt} onChange={setMAtt} placeholder="Všichni / Adam, Laura..." />
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right"}}><Btn onClick={addMeeting}>Vytvořit schůzku</Btn></div>
+                </div>
+              )}
+
+              <div style={{maxWidth:700}}>
+                <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.2rem",color:"#1a5fa8",marginBottom:"1rem"}}>Kalendář nadcházejících akcí</h3>
+                {meetings.length===0 ? <div style={S.empty}>Žádné plánované akce v kalendáři.</div> :
+                  [...meetings].sort((a,b)=>a.date.localeCompare(b.date)).map(m=>(
+                    <div key={m.id} style={S.meeting}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:8}}>
+                        <div>
+                          <span style={{...S.badge("blue"),marginBottom:6}}>📅 {new Date(m.date).toLocaleDateString("cs-CZ")} v {m.time}</span>
+                          <h4 style={{fontSize:"1.05rem",fontWeight:600,color:"#111"}}>{m.title}</h4>
+                        </div>
+                        <div style={{textAlign:"right",fontSize:"0.82rem",color:"#555"}}>
+                          <div>📍 Kde: <strong>{m.place}</strong></div>
+                          <div style={{marginTop:2}}>👥 Účast: <span style={S.tpill}>{m.attendees}</span></div>
+                        </div>
+                      </div>
+                      {m.desc && <p style={{fontSize:"0.85rem",color:"#444",background:"#f4f8fc",padding:"0.5rem 0.75rem",borderRadius:8,marginTop:8,lineHeight:1.4}}>{m.desc}</p>}
+                      {isAdmin(cu) && (
+                        <div style={{textAlign:"right",marginTop:8,paddingTop:4}}>
+                          <button style={{background:"none",border:"none",color:"#dc2626",fontSize:"0.75rem",cursor:"pointer"}} onClick={()=>delMeeting(m.id)}>❌ Smazat z kalendáře</button>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+          )}
+
+          {/* 5. MOJE DOCHÁZKA */}
+          {page==="myattendance" && (
+            <div>
+              <div style={S.pageTitle}>🕒 Moje historie docházky</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 2fr",gap:"2rem",alignItems:"start"}}>
+                <div style={S.scard}>
+                  <h3 style={S.scardTitle}>Shrnutí odpracované doby</h3>
+                  <div style={{fontSize:"0.9rem",lineHeight:1.8}}>
+                    Jméno: <strong>{cu.name}</strong><br/>
+                    Nastavený úvazek: {cu.shift}<br/>
+                    Celkem záznamů v systému: {getUserRecords(attendance,cu.login).length}
+                  </div>
+                </div>
+                
+                <div style={S.scard}>
+                  <h3 style={S.scardTitle}>Tabulka příchodů a odchodů</h3>
+                  <div style={S.tblWrap}>
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>Datum</th>
+                          <th style={S.th}>Příchod</th>
+                          <th style={S.th}>Odchod</th>
+                          <th style={S.th}>Odpracováno</th>
+                          <th style={S.th}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getUserRecords(attendance,cu.login).length===0 ? 
+                          <tr><td colSpan={5} style={{...S.td,textAlign:"center",color:"#8a9a8a"}}>Zatím nemáte v systému žádné záznamy o docházce.</td></tr> :
+                          getUserRecords(attendance,cu.login).map((r,i)=>(
+                            <tr key={i}>
+                              <td style={S.td}>{new Date(r.date).toLocaleDateString("cs-CZ")}</td>
+                              <td style={{...S.td,color:"#3a7d44",fontWeight:600}}>{r.in||"—"}</td>
+                              <td style={{...S.td,color:"#dc2626",fontWeight:600}}>{r.out||"—"}</td>
+                              <td style={{...S.td,fontWeight:600}}>{calcHours(r.in,r.out)}</td>
+                              <td style={S.td}>
+                                <Badge type={r.status==="ok"?"green":r.status?"orange":"red"}>
+                                  {r.status==="ok"?"V pořádku":r.status==="late"?"Zpoždění":"Absence"}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 6. ADMIN: SPRÁVA ZAMĚSTNANCŮ */}
+          {page==="users" && canAccessAdmin(cu) && (
+            <div>
+              <div style={S.pageTitle}>
+                <div>👥 Správa zaměstnanců a přístupů</div>
+                <Btn onClick={()=>setAddModal(true)}>➕ Přidat zaměstnance</Btn>
+              </div>
+
+              <div style={S.scard}>
+                <div style={S.tblWrap}>
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <thead>
+                      <tr>
+                        <th style={S.th}>Zkratka</th>
+                        <th style={S.th}>Celé jméno (Login)</th>
+                        <th style={S.th}>Pracovní pozice</th>
+                        <th style={S.th}>Plánovaná směna</th>
+                        <th style={S.th}>Role</th>
+                        <th style={S.th}>Stav</th>
+                        <th style={S.th}>Akce</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(users).map(([login,u])=>(
+                        <tr key={login} style={{opacity:u.active?1:0.5,background:u.active?"transparent":"#f1f1f1"}}>
+                          <td style={S.td}><Avatar initials={u.initials} color={u.color} size={28}/></td>
+                          <td style={S.td}>
+                            <strong>{u.name}</strong><br/>
+                            <span style={{fontSize:"0.75rem",color:"#6b7a6b"}}>login: {login}</span>
+                          </td>
+                          <td style={S.td}>{u.pos}</td>
+                          <td style={S.td}>⏱️ {u.shift}</td>
+                          <td style={S.td}>
+                            <Badge type={u.role==="admin"?"orange":"blue"}>{u.role==="admin"?"Admin":"Zaměstnanec"}</Badge>
+                          </td>
+                          <td style={S.td}>
+                            <span style={{color:u.active?"#10b981":"#ef4444",fontWeight:600}}>{u.active?"● Aktivní":"○ Deaktivován"}</span>
+                          </td>
+                          <td style={S.td}>
+                            <div style={{display:"flex",gap:8}}>
+                              <button style={{background:"none",border:"none",color:"#1a5fa8",fontSize:"0.82rem",cursor:"pointer",textDecoration:"underline"}} onClick={()=>openEdit(login)}>Upravit</button>
+                              {login!=="adam" && (
+                                <button style={{background:"none",border:"none",color:u.active?"#dc2626":"#10b981",fontSize:"0.82rem",cursor:"pointer",textDecoration:"underline"}} onClick={()=>toggleUserActive(login)}>
+                                  {u.active?"Deaktivovat":"Aktivovat"}
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Informační karta */}
+              <div style={{background:"#fff8e6",border:"1px solid #ffeeba",padding:"1rem 1.5rem",borderRadius:14,fontSize:"0.84rem",color:"#856404",maxWidth:600,lineHeight:1.5}}>
+                💡 <strong>Tip pro administrátora:</strong> Pokud zaměstnanec zapomene heslo, klikněte na "Upravit" a zadejte mu heslo nové. Pokud u vás někdo ukončí pracovní poměr, klikněte na "Deaktivovat" – účet zůstane v historii kvůli docházce, ale dotyčný se již do systému nepřihlásí.
+              </div>
+            </div>
+          )}
+
+          {/* 7. ADMIN: PŘEHLED DOCHÁZKY VŠECH */}
+          {page==="allattendance" && canAccessAdmin(cu) && (
+            <div>
+              <div style={S.pageTitle}>📊 Celkový přehled firemní docházky</div>
+              
+              <div style={{display:"flex",flexDirection:"column",gap:"2rem"}}>
+                {Object.entries(users).filter(([,u])=>u.role!=="admin").map(([login,u])=>(
+                  <div key={login} style={S.scard}>
+                    <div style={{display:"flex",alignItems:"center",gap:"0.75rem",marginBottom:"1rem"}}>
+                      <Avatar initials={u.initials} color={u.color} size={32}/>
+                      <div>
+                        <h3 style={{fontSize:"1.1rem",fontWeight:600}}>{u.name}</h3>
+                        <div style={{fontSize:"0.78rem",color:"#6b7a6b"}}>Pozice: {u.pos} · Úvazek: {u.shift}</div>
+                      </div>
+                    </div>
+
+                    <div style={S.tblWrap}>
+                      <table style={{width:"100%",borderCollapse:"collapse"}}>
+                        <thead>
+                          <tr>
+                            <th style={S.th}>Datum</th>
+                            <th style={S.th}>Příchod</th>
+                            <th style={S.th}>Odchod</th>
+                            <th style={S.th}>Odpracováno</th>
+                            <th style={S.th}>Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {getUserRecords(attendance,login).length===0 ? 
+                            <tr><td colSpan={5} style={{...S.td,textAlign:"center",color:"#8a9a8a",fontSize:"0.82rem"}}>Tento zaměstnanec zatím nemá v databázi žádné záznamy o docházce.</td></tr> :
+                            getUserRecords(attendance,login).map((r,idx)=>(
+                              <tr key={idx}>
+                                <td style={S.td}>{new Date(r.date).toLocaleDateString("cs-CZ")}</td>
+                                <td style={{...S.td,color:"#3a7d44",fontWeight:600}}>{r.in||"—"}</td>
+                                <td style={{...S.td,color:"#dc2626",fontWeight:600}}>{r.out||"—"}</td>
+                                <td style={{...S.td,fontWeight:600}}>{calcHours(r.in,r.out)}</td>
+                                <td style={S.td}>
+                                  <Badge type={r.status==="ok"?"green":r.status==="late"?"orange":"red"}>
+                                    {r.status==="ok"?"V pořádku":r.status==="late"?"Zpoždění":"Absence"}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* MODÁLNÍ OKNO: PŘIDAT ZAMĚSTNANCE */}
+      <Modal open={addModal} onClose={()=>setAddModal(false)} title="👤 Nový zaměstnanec do systému">
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={nName} onChange={setNName} placeholder="Celé jméno (např. Jana Nováková)"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={nLogin} onChange={setNLogin} placeholder="Login"/><Inp value={nPass} onChange={setNPass} placeholder="Heslo" type="password"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={nPos} onChange={setNPos} placeholder="Pozice"/><Inp value={nShift} onChange={setNShift} placeholder="Směna (8:00–16:00)"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}>
+          <div>
+            <div style={S.flabel}>Uživatelská role</div>
+            <Sel value={nRole} onChange={setNRole} options={[{v:"employee",l:"🌱 Zaměstnanec"},{v:"admin",l:"👑 Administrátor"}]} />
+          </div>
+          <div>
+            <div style={S.flabel}>Barva profilu</div>
+            <Sel value={nColor} onChange={setNColor} options={[{v:"#3a7d44",l:"Zelená"},{v:"#1a5fa8",l:"Modrá"},{v:"#993556",l:"Vínová"},{v:"#b8860b",l:"Zlatá"},{v:"#555555",l:"Šedá"}]} />
+          </div>
+        </div>
+        <div style={{display:"flex",gap:"0.75rem",marginTop:"1.5rem",justifyContent:"flex-end"}}><Btn onClick={addUser}>Přidat</Btn><Btn type="outline" onClick={()=>setAddModal(false)}>Zrušit</Btn></div>
+      </Modal>
+
+      {/* MODÁLNÍ OKNO: UPRAVIT ZAMĚSTNANCE */}
+      <Modal open={editModal} onClose={()=>setEditModal(false)} title="✏️ Upravit zaměstnance">
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={eName} onChange={setEName} placeholder="Celé jméno"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={ePos} onChange={setEPos} placeholder="Pozice"/><Inp value={eShift} onChange={setEShift} placeholder="Směna"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}>
+          <div>
+            <div style={S.flabel}>Role v systému</div>
+            <Sel value={eRole} onChange={setERole} options={[{v:"employee",l:"🌱 Zaměstnanec"},{v:"admin",l:"👑 Administrátor"}]} />
+          </div>
+          <div>
+            <div style={S.flabel}>Barva profilu</div>
+            <Sel value={eColor} onChange={setEColor} options={[{v:"#3a7d44",l:"Zelená"},{v:"#1a5fa8",l:"Modrá"},{v:"#993556",l:"Vínová"},{v:"#b8860b",l:"Zlatá"},{v:"#555555",l:"Šedá"}]} />
+          </div>
+        </div>
+        <div style={{background:"#f4f4f4",padding:10,borderRadius:8,marginTop:10}}>
+          <div style={{...S.flabel,marginBottom:4}}>Změnit heslo (pokud nechcete měnit, nechte prázdné)</div>
+          <Inp value={ePass} onChange={setEPass} placeholder="Nové heslo uživatele" type="password" />
+        </div>
+        <div style={{display:"flex",gap:"0.75rem",marginTop:"1.5rem",justifyContent:"flex-end"}}><Btn onClick={saveEdit}>Uložit změny</Btn><Btn type="outline" onClick={()=>setEditModal(false)}>Zrušit</Btn></div>
+      </Modal>
+
+      {/* GLOBÁLNÍ NOTIFIKACE */}
+      <Notif msg={notif} />
+    </div>
+  );
+}
+</script>
+</body>
+</html>
