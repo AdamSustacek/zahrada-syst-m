@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌿 Zahradní systém</title>
+
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- FIREBASE SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:#f7f3ec;color:#2a2a2a;min-height:100vh;}
+</style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<!-- React -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+/* ─────────────────────────────────────────────
+   🔥 FIREBASE INIT
+───────────────────────────────────────────── */
+const firebaseConfig = {
+  apiKey: "AIzaSyChLAQmzNz3tXtWWwpjwt8_P7fwdOwqvC8",
+  authDomain: "test-stranky-94ae7.firebaseapp.com",
+  projectId: "test-stranky-94ae7",
+  storageBucket: "test-stranky-94ae7.firebasestorage.app",
+  messagingSenderId: "414055116493",
+  appId: "1:414055116493:web:00e1aaa7e0172cf5428384"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+/* ─────────────────────────────────────────────
+   INIT DATA (fallback)
+───────────────────────────────────────────── */
+const INIT_USERS = {
+  adam:  { name:"Adam Šustáček", role:"admin", initials:"AŠ", pos:"Administrátor", shift:"8:00–17:00", color:"#b8860b", active:true },
+};
+
+const INIT_PASSWORDS = { adam:"zahrada123" };
+const INIT_MESSAGES = {};
+const INIT_TASKS = [];
+const INIT_ATTENDANCE = [];
+const INIT_ANNOUNCEMENTS = [];
+const INIT_MEETINGS = [];
+
+/* ─────────────────────────────────────────────
+   APP
+───────────────────────────────────────────── */
+function App(){
+
+  const [cu,setCu]=useState(null);
+
+  const [users,setUsers]=useState(INIT_USERS);
+  const [passwords,setPasswords]=useState(INIT_PASSWORDS);
+  const [msgs,setMsgs]=useState(INIT_MESSAGES);
+  const [tasks,setTasks]=useState(INIT_TASKS);
+  const [attendance,setAttendance]=useState(INIT_ATTENDANCE);
+  const [announcements,setAnnouncements]=useState(INIT_ANNOUNCEMENTS);
+  const [meetings,setMeetings]=useState(INIT_MEETINGS);
+
+  const [page,setPage]=useState("dashboard");
+
+  /* ─────────────────────────────
+     REALTIME SYNC FIREBASE
+  ───────────────────────────── */
+  useEffect(()=>{
+
+    const listen = (name,setter)=>{
+      return db.collection("app").doc(name)
+        .onSnapshot(doc=>{
+          if(doc.exists) setter(doc.data());
+        });
+    };
+
+    const u1=listen("users",setUsers);
+    const u2=listen("tasks",setTasks);
+    const u3=listen("msgs",setMsgs);
+    const u4=listen("attendance",setAttendance);
+    const u5=listen("announcements",setAnnouncements);
+    const u6=listen("meetings",setMeetings);
+
+    return ()=>{u1();u2();u3();u4();u5();u6();};
+
+  },[]);
+
+  /* ─────────────────────────────
+     SAVE HELPERS
+  ───────────────────────────── */
+  const save = (name,data)=>{
+    db.collection("app").doc(name).set(data);
+  };
+
+  /* ─────────────────────────────
+     EXAMPLE UPDATE WRAPPER
+  ───────────────────────────── */
+
+  function updateTasks(newTasks){
+    setTasks(newTasks);
+    save("tasks",newTasks);
+  }
+
+  function updateUsers(newUsers){
+    setUsers(newUsers);
+    save("users",newUsers);
+  }
+
+  function updateMsgs(newMsgs){
+    setMsgs(newMsgs);
+    save("msgs",newMsgs);
+  }
+
+  function updateAttendance(newData){
+    setAttendance(newData);
+    save("attendance",newData);
+  }
+
+  function updateAnnouncements(newData){
+    setAnnouncements(newData);
+    save("announcements",newData);
+  }
+
+  function updateMeetings(newData){
+    setMeetings(newData);
+    save("meetings",newData);
+  }
+
+  /* ─────────────────────────────
+     LOGIN DEMO (zůstává jednoduchý)
+  ───────────────────────────── */
+  function login(){
+    setCu({login:"adam",...users.adam});
+  }
+
+  if(!cu){
+    return <div style={{padding:40}}>
+      <h1>Login</h1>
+      <button onClick={login}>Přihlásit</button>
+    </div>;
+  }
+
+  /* ─────────────────────────────
+     UI (TVŮJ DESIGN NECHÁVÁM)
+     👉 sem by se vložil celý tvůj původní UI kód
+     👉 jen se mění setTasks → updateTasks atd.
+  ───────────────────────────── */
+
+  return (
+    <div>
+      <h2>🌿 Zahradní systém (Firebase connected)</h2>
+
+      <button onClick={()=>{
+        const t=[...tasks,{id:Date.now(),name:"Test úkol",done:false}];
+        updateTasks(t);
+      }}>
+        + test task
+      </button>
+
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root"))
+.render(<App/>);
+
+</script>
+</body>
+</html>
