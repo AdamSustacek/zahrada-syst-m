@@ -1,21 +1,4 @@
-﻿<!DOCTYPE html>
-<!--
-  ═══════════════════════════════════════════════════════════
-  ZAHRADNÍ SYSTÉM – JEDEN SOUBOR (vše je uvnitř tohoto HTML)
-  ═══════════════════════════════════════════════════════════
-  Na web nahrajte POUZE: zahrada.html  (nebo index.html – stejný obsah)
-
-  NEPOTŘEBUJETE žádný jiný soubor z počítače:
-    × zahrada-app.jsx
-    × zahrada-system.jsx
-    × JS.js
-
-  Potřebujete INTERNET + Firebase (cloud):
-    - Nahrajte index.html na web (Wedos, Forpsi, GitHub Pages…)
-    - Na všech PC otevírejte STEJNOU webovou adresu
-    - V Firebase nastavte pravidla: viz firebase-pravidla.txt na ploše
-  ═══════════════════════════════════════════════════════════
--->
+<!DOCTYPE html>
 <html lang="cs">
 <head>
 <meta charset="UTF-8">
@@ -26,9 +9,9 @@
 <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'DM Sans',sans-serif;background:#f7f3ec;color:#2a2a2a;min-height:100vh;}#root{min-height:100vh;}</style>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.23.12/babel.min.js"></script>
 </head>
 <body>
 <div id="root">
@@ -414,8 +397,18 @@ function App(){
 
   function onSyncEvent(st,msg){
     if(st==="saving") setSyncStatus("saving");
-    else if(st==="saved"){ setSyncStatus("ok"); setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"})); setSyncErr(""); setFbOnline(true); }
-    else if(st==="error"){ setSyncStatus("error"); setSyncErr(msg||"Chyba"); setFbOnline(false); notify("⚠️ Nepodařilo se uložit do cloudu"); }
+    else if(st==="saved"){
+      setSyncStatus("ok");
+      setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
+      setSyncErr("");
+      setFbOnline(true);
+    }
+    else if(st==="error"){
+      setSyncStatus("error");
+      setSyncErr(msg||"Chyba");
+      setFbOnline(false);
+      notify("⚠️ Nepodařilo se uložit do cloudu");
+    }
   }
 
   // data
@@ -438,7 +431,11 @@ function App(){
 
   /* Firebase – data v cloudu, stejná na všech PC a na webu */
   useEffect(()=>{
-    if(!window.db){ setFbReady(true); setSyncStatus("offline"); return; }
+    if(!window.db){
+      setFbReady(true);
+      setSyncStatus("offline");
+      return;
+    }
     const db=window.db;
     const seeds=[
       ["users",INIT_USERS],["passwords",INIT_PASSWORDS],["msgs",INIT_MESSAGES],
@@ -446,7 +443,7 @@ function App(){
       ["announcements",INIT_ANNOUNCEMENTS],["meetings",INIT_MEETINGS],
     ];
     const setters={users:setUsers,passwords:setPasswords,msgs:setMsgs,tasks:setTasks,
-      attendance:setAttendance,announcements:setAnnouncements,meetings:setMeetings};
+                   attendance:setAttendance,announcements:setAnnouncements,meetings:setMeetings};
     let loaded=0;
     const unsubs=seeds.map(([name,fallback])=>
       db.collection("app").doc(name).onSnapshot(function(doc){
@@ -461,657 +458,717 @@ function App(){
         }
         loaded++;
         if(loaded>=seeds.length){
-          setFbReady(true); setFbOnline(true); setSyncStatus("ok");
+          setFbReady(true);
+          setFbOnline(true);
+          setSyncStatus("ok");
           setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
         }
       },function(err){
-        setFbOnline(false); setSyncStatus("error"); setSyncErr(err.message||"Bez připojení");
+        console.error("Snapshot error:",name,err);
+        setSyncStatus("error");
+        setSyncErr(err.message||String(err));
       })
     );
-    return function(){ unsubs.forEach(function(u){u();}); };
+    return ()=>unsubs.forEach(f=>f());
   },[]);
 
-  const updateUsers=makeUpdater(setUsers,"users",onSyncEvent);
-  const updatePasswords=makeUpdater(setPasswords,"passwords",onSyncEvent);
-  const updateMsgs=makeUpdater(setMsgs,"msgs",onSyncEvent);
-  const updateTasks=makeUpdater(setTasks,"tasks",onSyncEvent);
-  const updateAttendance=makeUpdater(setAttendance,"attendance",onSyncEvent);
-  const updateAnnouncements=makeUpdater(setAnnouncements,"announcements",onSyncEvent);
-  const updateMeetings=makeUpdater(setMeetings,"meetings",onSyncEvent);
+  // updaters
+  const setUsersCloud = makeUpdater(setUsers,"users",onSyncEvent);
+  const setPasswordsCloud = makeUpdater(setPasswords,"passwords",onSyncEvent);
+  const setMsgsCloud = makeUpdater(setMsgs,"msgs",onSyncEvent);
+  const setTasksCloud = makeUpdater(setTasks,"tasks",onSyncEvent);
+  const setAttendanceCloud = makeUpdater(setAttendance,"attendance",onSyncEvent);
+  const setAnnouncementsCloud = makeUpdater(setAnnouncements,"announcements",onSyncEvent);
+  const setMeetingsCloud = makeUpdater(setMeetings,"meetings",onSyncEvent);
 
+  // auto check state
   useEffect(()=>{
-    if(!canAccessAdmin(cu)&&page==="admin") setPage("dashboard");
-  },[cu,page]);
-
-  function goPage(id){
-    if(id==="admin"&&!canAccessAdmin(cu)) return;
-    setPage(id);
-  }
+    if(!cu) return;
+    const recs=getUserRecords(attendance,cu.login);
+    const today=nowDate();
+    const t=recs.find(r=>r.date===today);
+    setCheckedIn(!!(t && t.in && !t.out));
+  },[cu, attendance]);
 
   function notify(msg){
     setNotif(msg);
     clearTimeout(notifRef.current);
-    notifRef.current = setTimeout(()=>setNotif(""), 3000);
+    notifRef.current=setTimeout(()=>setNotif(""),3500);
   }
 
   function doLogin(){
-    const u = loginUser.trim().toLowerCase();
-    const p = loginPass;
-    if(!u||!p){ setLoginErr("Vyplňte uživatelské jméno i heslo."); return; }
-    if(!passwords[u]||passwords[u]!==p){ setLoginErr("Nesprávné jméno nebo heslo."); return; }
-    const ud = users[u];
-    if(!ud||!ud.active){ setLoginErr("Tento účet je deaktivován."); return; }
-    if(selRole==="admin"&&ud.role!=="admin"){ setLoginErr("Tento účet nemá administrátorský přístup."); return; }
-    if(selRole==="employee"&&ud.role==="admin"){ setLoginErr("Administrátor se přihlašuje v záložce Administrátor."); return; }
+    const u=users[loginUser.toLowerCase().trim()];
+    if(!u || !u.active){ setLoginErr("Uživatel neexistuje."); return; }
+    const isAdmRole = selRole==="admin";
+    if(isAdmRole && u.role!=="admin"){ setLoginErr("Tento uživatel nemá práva administrátora."); return; }
+    if(!isAdmRole && u.role==="admin"){ setLoginErr("Administrátor se musí přihlásit přes kartu Administrátor."); return; }
+    
+    if(passwords[loginUser.toLowerCase().trim()] !== loginPass){
+      setLoginErr("Nesprávné heslo.");
+      return;
+    }
     setLoginErr("");
-    setCu({login:u,role:ud.role||"employee",...ud});
+    setCu({login:loginUser.toLowerCase().trim(), ...u});
     setPage("dashboard");
+    notify(`Vítejte, ${u.name} 👋`);
   }
 
   function doLogout(){
-    setCu(null); setSelChat(null); setCheckedIn(false);
-    setLoginUser(""); setLoginPass(""); setLoginErr("");
+    setCu(null);
+    setLoginPass("");
+    setPage("dashboard");
+    setSelChat(null);
   }
 
-  if(!cu) return (
-    <LoginScreen selRole={selRole} setSelRole={setSelRole} loginUser={loginUser} setLoginUser={setLoginUser}
-      loginPass={loginPass} setLoginPass={setLoginPass} loginErr={loginErr} setLoginErr={setLoginErr}
-      doLogin={doLogin} users={users} fbOnline={fbOnline} fbReady={fbReady}/>
-  );
+  // Akce Docházka
+  function toggleAttendance(){
+    const today=nowDate();
+    const time=nowTime();
+    const recs=[...(getUserRecords(attendance,cu.login))];
+    const idx=recs.findIndex(r=>r.date===today);
 
-  if(!fbReady) return (
-    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",fontFamily:"'DM Sans',sans-serif",color:"#2d5a27",background:"#f7f3ec",padding:"2rem",textAlign:"center"}}>
-      <div style={{width:48,height:48,border:"3px solid rgba(58,125,68,0.2)",borderTopColor:"#3a7d44",borderRadius:"50%",animation:"spin 0.8s linear infinite",marginBottom:"1rem"}}/>
-      <div style={{fontSize:"1.1rem",fontWeight:600}}>Připojuji ke cloudu…</div>
-      <p style={{color:"#6b7a6b",marginTop:"0.5rem",maxWidth:360}}>Načítám data pro web i druhý počítač. Chvíli strpení.</p>
-    </div>
-  );
-
-  // ── CONTACTS ──
-  const contacts = Object.entries(users).filter(([k])=>k!==cu.login&&users[k].active).map(([login,u])=>({login,...u}));
-  function getUnread(){
-    return contacts.filter(c=>{
-      const key=chatKey(cu.login,c.login);
-      return (msgs[key]||[]).some(m=>m.from!==cu.login);
-    }).length;
+    if(!checkedIn){
+      if(idx===-1){
+        recs.unshift({date:today, in:time, out:"", status:"ok"});
+      }else{
+        recs[idx]={...recs[idx], in:time, out:""};
+      }
+      setAttendanceCloud(setUserRecords(attendance,cu.login,recs));
+      notify("⏳ Příchod úspěšně zaznamenán");
+    }else{
+      if(idx!==-1){
+        recs[idx]={...recs[idx], out:time};
+        setAttendanceCloud(setUserRecords(attendance,cu.login,recs));
+        notify("✅ Odchod úspěšně zaznamenán");
+      }
+    }
   }
-  const unread = getUnread();
 
-  // ── NAV ITEMS ──
-  const navItems = [
-    {id:"dashboard", icon:"🏡", label:"Přehled"},
-    {id:"messages",  icon:"💬", label:"Zprávy", badge:unread>0?unread:null},
-    {id:"tasks",     icon:"📋", label:"Úkoly"},
-    {id:"attendance",icon:"📅", label:"Docházka"},
-    {id:"announcements",icon:"📢",label:"Oznámení"},
-    {id:"meetings",  icon:"🤝", label:"Schůze"},
-    ...(canAccessAdmin(cu)?[{id:"admin",icon:"⚙️",label:"Admin panel",admin:true}]:[]),
-  ];
+  // Modaly správce
+  const [addModal, setAddModal] = useState(false);
+  const [nName, setNName] = useState("");
+  const [nLogin, setNLogin] = useState("");
+  const [nPass, setNPass] = useState("");
+  const [nPos, setNPos] = useState("");
+  const [nShift, setNShift] = useState("8:00–16:30");
+
+  function addUser(){
+    const log=nLogin.toLowerCase().trim();
+    if(!nName||!log||!nPass){ alert("Vyplňte jméno, login a heslo."); return; }
+    if(users[log]){ alert("Tento login již existuje."); return; }
+    
+    const colors=["#1a5fa8","#3a7d44","#993556","#4b2382","#d96b27","#157a70"];
+    const c=colors[Math.floor(Math.random()*colors.length)];
+    const ini=nName.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
+
+    setUsersCloud({...users, [log]:{name:nName, role:"employee", initials:ini, pos:nPos||"Zaměstnanec", shift:nShift, color:c, active:true}});
+    setPasswordsCloud({...passwords, [log]:nPass});
+    setAddModal(false);
+    setNName("");setNLogin("");setNPass("");setNPos("");
+    notify("👤 Nový zaměstnanec přidán");
+  }
+
+  const [editModal, setEditModal] = useState(false);
+  const [editLog, setEditLog] = useState("");
+  const [eName, setEName] = useState("");
+  const [ePos, setEPos] = useState("");
+  const [eShift, setEShift] = useState("");
+  const [ePass, setEPass] = useState("");
+
+  function openEdit(log){
+    const u=users[log];
+    setEditLog(log);
+    setEName(u.name);
+    setEPos(u.pos);
+    setEShift(u.shift);
+    setEPass(passwords[log]||"");
+    setEditModal(true);
+  }
+
+  function saveUser(){
+    if(!eName){ alert("Jméno nesmí být prázdné."); return; }
+    const u=users[editLog];
+    setUsersCloud({...users, [editLog]:{...u, name:eName, pos:ePos, shift:eShift}});
+    if(ePass) setPasswordsCloud({...passwords, [editLog]:ePass});
+    setEditModal(false);
+    notify("✏️ Údaje zaměstnance změněny");
+  }
+
+  function toggleUserActive(log){
+    const u=users[log];
+    const act=!u.active;
+    setUsersCloud({...users, [log]:{...u, active:act}});
+    notify(act?"👤 Zaměstnanec aktivován":"❌ Zaměstnanec deaktivován");
+  }
+
+  // Modaly úkolů
+  const [tModal, setTModal] = useState(false);
+  const [tName, setTName] = useState("");
+  const [tWho, setTWho] = useState("");
+  const [tPri, setTPri] = useState("medium");
+  const [tDesc, setTDesc] = useState("");
+
+  function addTask(){
+    if(!tName) return;
+    const n={id:Date.now(), name:tName, who:tWho||"Všichni", pri:tPri, date:nowDate(), done:false, desc:tDesc};
+    setTasksCloud([n, ...tasks]);
+    setTModal(false); setTName(""); setTDesc("");
+    notify("📋 Úkol úspěšně vytvořen");
+  }
+
+  function toggleTask(id){
+    setTasksCloud(tasks.map(t=>t.id===id?{...t, done:!t.done}:t));
+    notify("📋 Stav úkolu upraven");
+  }
+
+  function deleteTask(id){
+    if(confirm("Smazat tento úkol?")) setTasksCloud(tasks.filter(t=>t.id!==id));
+  }
+
+  // Oznámení / Porady
+  const [annTitle, setAnnTitle] = useState("");
+  const [annText, setAnnText] = useState("");
+  function addAnn(){
+    if(!annTitle||!annText) return;
+    const n={id:Date.now(), author:cu.name, time:new Date().toLocaleString("cs-CZ",{day:"numeric",month:"numeric",year:"numeric",hour:"2-digit",minute:"2-digit"}), title:annTitle, text:annText};
+    setAnnouncementsCloud([n, ...announcements]);
+    setAnnTitle(""); setAnnText("");
+    notify("📢 Oznámení publikováno");
+  }
+  function delAnn(id){ setAnnouncementsCloud(announcements.filter(a=>a.id!==id)); }
+
+  const [meetTitle, setMeetTitle] = useState("");
+  const [meetDate, setMeetDate] = useState("");
+  const [meetTime, setMeetTime] = useState("");
+  const [meetPlace, setMeetPlace] = useState("");
+  const [meetAtt, setMeetAtt] = useState("Všichni");
+  function addMeet(){
+    if(!meetTitle||!meetDate||!meetTime) return;
+    const n={id:Date.now(), title:meetTitle, date:meetDate, time:meetTime, place:meetPlace||"Areál", desc:"", attendees:meetAtt};
+    setMeetingsCloud([n, ...meetings]);
+    setMeetTitle(""); setMeetDate(""); setMeetTime(""); setMeetPlace("");
+    notify("📅 Porada byla naplánována");
+  }
+  function delMeet(id){ setMeetingsCloud(meetings.filter(m=>m.id!==id)); }
+
+  // Chat zprávy
+  const [chatInp, setChatInp] = useState("");
+  const msgsEndRef = useRef();
+
+  useEffect(()=>{
+    if(page==="chat" && msgsEndRef.current){
+      msgsEndRef.current.scrollIntoView({behavior:"smooth"});
+    }
+  },[page, msgs, selChat]);
+
+  function sendChat(){
+    if(!chatInp.trim()||!selChat) return;
+    const k=chatKey(cu.login, selChat);
+    const curr=asArray(msgs[k]);
+    const n={from:cu.login, text:chatInp.trim(), time:nowTime()};
+    setMsgsCloud({...msgs, [k]:[...curr, n]});
+    setChatInp("");
+  }
+
+  if(!cu){
+    return <LoginScreen selRole={selRole} setSelRole={setSelRole} loginUser={loginUser} setLoginUser={setLoginUser} loginPass={loginPass} setLoginPass={setLoginPass} loginErr={loginErr} setLoginErr={setLoginErr} doLogin={doLogin} users={users} fbOnline={fbOnline} fbReady={fbReady} />;
+  }
+
+  const activeChatsCount=Object.keys(users).filter(k=>k!==cu.login&&users[k].active).reduce((acc,k)=>{
+    const key=chatKey(cu.login,k);
+    const arr=asArray(msgs[key]);
+    return acc+(arr.length>0?1:0);
+  },0);
 
   return (
     <div style={S.app}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+      <Notif msg={notif} />
+      
       {/* TOPBAR */}
       <div style={S.topbar}>
-        <div style={S.topBrand}>🌿 Zahradní systém</div>
+        <div style={S.topBrand}>🌿 Zahradní systém <span style={{fontSize:"0.75rem",fontFamily:"sans-serif",fontWeight:400,opacity:0.6}}>v1.4.0</span></div>
         <div style={S.topRight}>
-          <span style={{fontSize:"0.75rem",color:syncStatus==="error"||syncStatus==="offline"?"#b45309":syncStatus==="saving"?"#1a5fa8":"#2d5a27",background:syncStatus==="error"||syncStatus==="offline"?"#fff3cd":syncStatus==="saving"?"#e0f0ff":"#d4f0d4",padding:"4px 10px",borderRadius:100,fontWeight:600}} title={syncErr||"Data jsou v cloudu – vidíte je na webu i na jiném PC"}>
-            {syncStatus==="saving"?"⏳ Ukládám…":syncStatus==="error"?"⚠️ Chyba cloudu":syncStatus==="offline"?"📴 Jen lokálně":lastSync?"☁️ Web sync "+lastSync:"☁️ Připojeno"}
-          </span>
-          <div style={S.ubadge}>
-            <Avatar initials={cu.initials} color={cu.color} size={32}/>
-            <span style={S.uname}>{cu.name.split(" ")[0]}</span>
-            <span style={S.urole(cu.role==="admin")}>{cu.role==="admin"?"Administrátor":"Zaměstnanec"}</span>
+          <div style={{fontSize:"0.75rem",color:syncStatus==="ok"?"#2d5a27":syncStatus==="saving"?"#b8860b":"#dc2626",textAlign:"right",fontFamily:"sans-serif"}}>
+            {syncStatus==="ok"&&`• Cloud synchronizován (${lastSync})`}
+            {syncStatus==="saving"&&"• Ukládám změny do cloudu…"}
+            {syncStatus==="loading"&&"• Stahuji cloud data…"}
+            {syncStatus==="error"&&`• Chyba cloudu: ${syncErr}`}
+            {syncStatus==="offline"&&"• Lokální režim (bez cloudu)"}
           </div>
-          <button style={S.logoutBtn} onClick={doLogout}>Odhlásit</button>
+          <div style={S.ubadge}>
+            <Avatar initials={cu.initials} color={cu.color} size={32} />
+            <span style={S.uname}>{cu.name}</span>
+            <span style={S.urole(isAdmin(cu))}>{isAdmin(cu)?"Správce":"Zaměstnanec"}</span>
+          </div>
+          <button style={S.logoutBtn} onClick={doLogout}>Odhlásit se</button>
         </div>
       </div>
-      <div style={{display:"flex",flex:1}}>
+
+      <div style={{display:"flex", minHeight:"calc(100vh - 64px)"}}>
         {/* SIDEBAR */}
         <div style={S.sidebar}>
-          <div style={S.slabel}>Hlavní</div>
-          {navItems.map(n=>(
-            <button key={n.id} style={S.nbtn(page===n.id)} onClick={()=>goPage(n.id)}>
-              <span style={{fontSize:"1.1rem"}}>{n.icon}</span>
-              {n.label}
-              {n.badge && <span style={S.nbadge}>{n.badge}</span>}
-            </button>
-          ))}
+          <button style={S.nbtn(page==="dashboard")} onClick={()=>setPage("dashboard")}>🏠 Nástěnka</button>
+          <button style={S.nbtn(page==="tasks")} onClick={()=>setPage("tasks")}>📋 Úkoly ({tasks.filter(t=>!t.done).length})</button>
+          <button style={S.nbtn(page==="chat")} onClick={()=>{setPage("chat");if(!selChat){const f=Object.keys(users).find(k=>k!==cu.login&&users[k].active);if(f)setSelChat(f);}}}>💬 Zprávy {activeChatsCount>0&&<span style={S.nbadge}>{activeChatsCount}</span>}</button>
+          <button style={S.nbtn(page==="attendance")} onClick={()=>setPage("attendance")}>📅 Docházka</button>
+          
+          {canAccessAdmin(cu) && (
+            <>
+              <div style={S.slabel}>Správa firmy</div>
+              <button style={S.nbtn(page==="admin-users")} onClick={()=>setPage("admin-users")}>👥 Zaměstnanci</button>
+              <button style={S.nbtn(page==="admin-attendance")} onClick={()=>setPage("admin-attendance")}>📊 Přehled docházky</button>
+            </>
+          )}
         </div>
-        {/* CONTENT */}
+
+        {/* CONTENT CONTENT */}
         <div style={S.content}>
-          {page==="dashboard"  && <Dashboard cu={cu} users={users} tasks={tasks} msgs={msgs} contacts={contacts} announcements={announcements} meetings={meetings} attendance={attendance} chatKey={chatKey}/>}
-          {page==="messages"   && <Messages cu={cu} users={users} msgs={msgs} setMsgs={updateMsgs} contacts={contacts} selChat={selChat} setSelChat={setSelChat} chatKey={chatKey} notify={notify}/>}
-          {page==="tasks"      && <Tasks cu={cu} users={users} tasks={tasks} setTasks={updateTasks} notify={notify}/>}
-          {page==="attendance" && <Attendance cu={cu} users={users} allAttendance={attendance} setAllAttendance={updateAttendance} checkedIn={checkedIn} setCheckedIn={setCheckedIn} notify={notify}/>}
-          {page==="announcements" && <Announcements cu={cu} announcements={announcements} setAnnouncements={updateAnnouncements} notify={notify}/>}
-          {page==="meetings"   && <Meetings cu={cu} meetings={meetings} setMeetings={updateMeetings} notify={notify}/>}
-          {page==="admin"      && canAccessAdmin(cu) && <Admin cu={cu} users={users} setUsers={updateUsers} allAttendance={attendance} setAllAttendance={updateAttendance} passwords={passwords} setPasswords={updatePasswords} tasks={tasks} setTasks={updateTasks} announcements={announcements} setAnnouncements={updateAnnouncements} meetings={meetings} setMeetings={updateMeetings} msgs={msgs} setMsgs={updateMsgs} notify={notify}/>}
-        </div>
-      </div>
-      <Notif msg={notif}/>
-    </div>
-  );
-}
-
-// ── DASHBOARD ─────────────────────────────────────────
-function Dashboard({cu,users,tasks,msgs,contacts,announcements,meetings,attendance,chatKey}){
-  const myTasks = asArray(tasks).filter(t=>!t.done&&(isAdmin(cu)||(t.who&&t.who.toLowerCase().includes(cu.name.split(" ")[0].toLowerCase()))));
-  const unread = contacts.filter(c=>(msgs[chatKey(cu.login,c.login)]||[]).some(m=>m.from!==cu.login)).length;
-  const stats = isAdmin(cu)
-    ? [{l:"Zaměstnanců",v:Object.values(users).filter(u=>u.role!=="admin"&&u.active).length,s:"aktivních"},{l:"Otevřených úkolů",v:asArray(tasks).filter(t=>!t.done).length,s:"celkem"},{l:"Nové zprávy",v:unread,s:"konverzací"},{l:"Schůze",v:meetings.length,s:"naplánováno"}]
-    : [{l:"Moje úkoly",v:myTasks.length,s:"čeká"},{l:"Nové zprávy",v:unread,s:"nepřečtených"},{l:"Oznámení",v:announcements.length,s:"celkem"}];
-  return (
-    <div>
-      <div style={S.welcome}>
-        <h2 style={S.wh2}>Dobrý den, {cu.name.split(" ")[0]}! 👋</h2>
-        <p style={S.wp}>Dnes je {todayLabel()} · Vaše směna: {cu.shift}</p>
-      </div>
-      <div style={S.statGrid}>
-        {stats.map(s=><div key={s.l} style={S.statCard}><div style={S.statLabel}>{s.l}</div><div style={S.statValue}>{s.v}</div><div style={S.statSub}>{s.s}</div></div>)}
-      </div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1.5rem"}}>
-        <div style={S.scard}>
-          <div style={S.scardTitle}>📋 Moje úkoly</div>
-          {myTasks.length===0 && <div style={S.empty}><div style={{fontSize:"2rem"}}>🎉</div>Žádné úkoly!</div>}
-          {myTasks.slice(0,5).map(t=>(
-            <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.55rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
-              <div style={{width:10,height:10,borderRadius:"50%",background:t.pri==="high"?"#dc2626":t.pri==="medium"?"#f59e0b":"#3a7d44",flexShrink:0}}/>
-              <div style={{flex:1,fontSize:"0.88rem"}}>{t.name}</div>
-              <div style={{fontSize:"0.75rem",color:"#8a9a8a"}}>{t.date}</div>
-            </div>
-          ))}
-        </div>
-        <div style={S.scard}>
-          <div style={S.scardTitle}>💬 Poslední zprávy</div>
-          {contacts.length===0 && <div style={S.empty}><div style={{fontSize:"2rem"}}>💬</div>Žádné zprávy</div>}
-          {contacts.map(c=>{
-            const key=chatKey(cu.login,c.login);
-            const last=(msgs[key]||[]).slice(-1)[0];
-            if(!last) return null;
-            return <div key={c.login} style={{display:"flex",alignItems:"center",gap:"0.7rem",padding:"0.55rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
-              <Avatar initials={c.initials} color={c.color} size={30}/>
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:"0.85rem",fontWeight:500}}>{c.name.split(" ")[0]}</div>
-                <div style={{fontSize:"0.75rem",color:"#8a9a8a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{last.text}</div>
-              </div>
-              <div style={{fontSize:"0.7rem",color:"#b0bab0",flexShrink:0}}>{last.time}</div>
-            </div>;
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── MESSAGES ─────────────────────────────────────────
-function Messages({cu,users,msgs,setMsgs,contacts,selChat,setSelChat,chatKey,notify}){
-  const [text,setText]=useState("");
-  const msgsEndRef=useRef();
-  useEffect(()=>{ msgsEndRef.current?.scrollIntoView({behavior:"smooth"}); },[selChat,msgs]);
-  const key = selChat?chatKey(cu.login,selChat):null;
-  const thread = key?(msgs[key]||[]):[];
-  function send(){
-    if(!text.trim()||!selChat) return;
-    const k=chatKey(cu.login,selChat);
-    setMsgs(prev=>({...prev,[k]:[...(prev[k]||[]),{from:cu.login,text:text.trim(),time:nowTime()}]}));
-    setText("");
-  }
-  return (
-    <div style={S.chatLayout}>
-      <div style={S.chatUsers}>
-        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.1rem",color:"#2d5a27",marginBottom:"1rem"}}>💬 Konverzace</div>
-        {contacts.map(c=>{
-          const k=chatKey(cu.login,c.login);
-          const last=(msgs[k]||[]).slice(-1)[0];
-          return <div key={c.login} style={S.chatUser(selChat===c.login)} onClick={()=>setSelChat(c.login)}>
-            <Avatar initials={c.initials} color={c.color} size={36}/>
+          
+          {/* DASHBOARD */}
+          {page==="dashboard" && (
             <div>
-              <div style={{fontWeight:500,fontSize:"0.88rem",color:"#2d5a27"}}>{c.name.split(" ")[0]}</div>
-              <div style={{fontSize:"0.75rem",color:"#8a9a8a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:130}}>{last?last.text:"Žádné zprávy"}</div>
-            </div>
-          </div>;
-        })}
-      </div>
-      <div style={S.chatMain}>
-        <div style={{paddingBottom:"1rem",borderBottom:"1px solid rgba(58,125,68,0.1)",marginBottom:"0.5rem"}}>
-          <div style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.1rem",color:"#2d5a27"}}>{selChat?users[selChat]?.name:"Vyberte konverzaci"}</div>
-          {selChat&&<div style={{fontSize:"0.78rem",color:"#8a9a8a"}}>{users[selChat]?.pos}</div>}
-        </div>
-        <div style={S.chatMsgs}>
-          {!selChat && <div style={S.empty}><div style={{fontSize:"2rem"}}>💬</div>Vyberte kontakt a začněte psát.</div>}
-          {thread.map((m,i)=>{
-            const mine=m.from===cu.login;
-            const s=users[m.from];
-            return <div key={i}>
-              {!mine&&<div style={{fontSize:"0.7rem",color:"#8a9a8a",padding:"0 0.4rem",marginBottom:2}}>{s?.name.split(" ")[0]}</div>}
-              <div style={S.mrow(mine)}>
-                <Avatar initials={s?.initials||"?"} color={s?.color||"#3a7d44"} size={28}/>
-                <div>
-                  <div style={S.mbubble(mine)}>{m.text}</div>
-                  <div style={{...S.mtime,textAlign:mine?"right":"left"}}>{m.time}</div>
+              <div style={S.welcome}>
+                <h2 style={S.wh2}>Krásný den, {cu.name}!</h2>
+                <p style={S.wp}>Dnes je {todayLabel()}. Vítejte v interním portálu.</p>
+              </div>
+
+              <div style={S.statGrid}>
+                <div style={S.statCard}>
+                  <div style={S.statLabel}>Moje docházka</div>
+                  <div style={{...S.statValue, fontSize:"1.25rem", marginTop:"0.6rem"}}>
+                    <Btn type={checkedIn?"danger":"primary"} sm onClick={toggleAttendance}>
+                      {checkedIn?`🔴 Odhlásit odchod`:`🟢 Zapsat příchod`}
+                    </Btn>
+                  </div>
+                  <div style={S.statSub}>{checkedIn?`Na směně od ${getUserRecords(attendance,cu.login)[0]?.in||""}`:`Mimo směnu`}</div>
+                </div>
+                <div style={S.statCard}>
+                  <div style={S.statLabel}>Nedokončené úkoly</div>
+                  <div style={S.statValue}>{tasks.filter(t=>!t.done&&(t.who==="Všichni"||t.who===cu.name||cu.role==="admin")).length}</div>
+                  <div style={S.statSub}>přiděleno vám / všem</div>
+                </div>
+                <div style={S.statCard}>
+                  <div style={S.statLabel}>Aktivní lidé</div>
+                  <div style={S.statValue}>{Object.values(users).filter(u=>u.active).length}</div>
+                  <div style={S.statSub}>v celém týmu</div>
                 </div>
               </div>
-            </div>;
-          })}
-          <div ref={msgsEndRef}/>
-        </div>
-        <div style={S.cinputWrap}>
-          <textarea style={S.cinput} value={text} onChange={e=>setText(e.target.value)} placeholder="Napište zprávu…" rows={1}
-            onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}/>
-          <button style={S.sendBtn} onClick={send}>➤</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-// ── TASKS ─────────────────────────────────────────────
-function TaskAddForm({users,tasks,setTasks,notify,title}){
-  const [name,setName]=useState("");
-  const [whoLogin,setWhoLogin]=useState("");
-  const [pri,setPri]=useState("medium");
-  const [date,setDate]=useState(nowDate());
-  const [desc,setDesc]=useState("");
-  const empOpts=Object.entries(users).filter(([,u])=>u.role!=="admin"&&u.active).map(([login,u])=>({v:login,l:u.name}));
-  function add(){
-    if(!name.trim()){notify("Zadejte název úkolu");return;}
-    if(!whoLogin){notify("Vyberte zaměstnance");return;}
-    const assignee=users[whoLogin].name.split(" ")[0];
-    setTasks(prev=>[...asArray(prev),{id:Date.now(),name,who:assignee,pri,date,done:false,desc}]);
-    setName("");setWhoLogin("");setDesc("");setPri("medium");setDate(nowDate());
-    notify("✅ Úkol přidán zaměstnanci "+assignee);
-  }
-  return (
-    <div style={S.addForm}>
-      <div style={{fontWeight:600,fontSize:"1rem",color:"#2d5a27",marginBottom:"1rem"}}>{title||"➕ Nový úkol pro zaměstnance"}</div>
-      <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={name} onChange={setName} placeholder="Název úkolu *"/></div>
-      <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}>
-        <div><label style={S.flabel}>Zaměstnanec *</label><Sel value={whoLogin} onChange={setWhoLogin} options={[{v:"",l:"— vyberte —"},...empOpts]}/></div>
-        <div><label style={S.flabel}>Priorita</label><Sel value={pri} onChange={setPri} options={[{v:"high",l:"🔴 Vysoká"},{v:"medium",l:"🟡 Střední"},{v:"low",l:"🟢 Nízká"}]}/></div>
-      </div>
-      <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><div><label style={S.flabel}>Termín</label><input style={S.inp} type="date" value={date} onChange={e=>setDate(e.target.value)}/></div><div><label style={S.flabel}>Popis</label><Inp value={desc} onChange={setDesc} placeholder="volitelně"/></div></div>
-      <Btn onClick={add}>✅ Přidat úkol</Btn>
-    </div>
-  );
-}
+              <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:"1.5rem"}}>
+                <div>
+                  <div style={S.scard}>
+                    <h3 style={S.scardTitle}>📢 Firemní nástěnka & Oznámení</h3>
+                    {isAdmin(cu) && (
+                      <div style={{...S.addForm, padding:"1rem", marginBottom:"1rem"}}>
+                        <Inp value={annTitle} onChange={setAnnTitle} placeholder="Předmět / Titulek" />
+                        <div style={{height:8}}/>
+                        <textarea style={{...S.inp, height:60, resize:"none"}} value={annText} onChange={e=>setAnnText(e.target.value)} placeholder="Zde napište vzkaz pro zaměstnance..." />
+                        <div style={{marginTop:8, textAlign:"right"}}><Btn sm onClick={addAnn}>Zveřejnit</Btn></div>
+                      </div>
+                    )}
+                    {announcements.length===0?<div style={S.empty}>Žádná oznámení.</div>:
+                      announcements.map(a=>(
+                        <div key={a.id} style={S.ann}>
+                          <div style={{display:"flex",justifyKey:"space-between",alignItems:"flex-start"}}>
+                            <strong style={{color:"#1a3d1a",fontSize:"0.95rem"}}>{a.title}</strong>
+                            {isAdmin(cu)&&<button style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:"0.8rem"}} onClick={()=>delAnn(a.id)}>Smazat</button>}
+                          </div>
+                          <p style={{fontSize:"0.88rem",margin:"0.3rem 0 0.6rem",lineHeight:1.4}}>{a.text}</p>
+                          <div style={{fontSize:"0.72rem",color:"#8a9a8a"}}>{a.author} · {a.time}</div>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
 
-function Tasks({cu,users,tasks,setTasks,notify}){
-  const adm=isAdmin(cu);
-  const taskList=asArray(tasks);
-  const list = adm?taskList:taskList.filter(t=>t.who&&t.who.toLowerCase().includes(cu.name.split(" ")[0].toLowerCase()));
-  return (
-    <div>
-      <div style={S.pageTitle}>📋 Úkoly</div>
-      {adm&&<TaskAddForm users={users} tasks={tasks} setTasks={setTasks} notify={notify} title="➕ Přidat úkol zaměstnanci (admin)"/>}
-      {list.length===0&&<div style={S.empty}><div style={{fontSize:"2rem"}}>📋</div>Žádné úkoly</div>}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:"1rem"}}>
-        {list.map(t=>(
-          <div key={t.id} style={S.tcard(t.pri,t.done)}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",gap:"0.5rem",marginBottom:"0.5rem"}}>
-              <div style={{fontWeight:600,fontSize:"0.92rem",textDecoration:t.done?"line-through":"none"}}>{t.name}</div>
-              {isAdmin(cu)&&<Btn type="danger" sm onClick={()=>{setTasks(p=>p.filter(x=>x.id!==t.id));notify("🗑️ Smazáno");}}>✕</Btn>}
+                <div>
+                  <div style={S.scard}>
+                    <h3 style={S.scardTitle}>📅 Nadcházející porady a akce</h3>
+                    {isAdmin(cu) && (
+                      <div style={{...S.addForm, padding:"1rem", marginBottom:"1rem"}}>
+                        <div style={{display:"grid",gridTemplateColumns:"2fr 1fr 1fr",gap:6,marginBottom:6}}>
+                          <Inp value={meetTitle} onChange={setMeetTitle} placeholder="Název porady" />
+                          <input type="date" style={S.inp} value={meetDate} onChange={e=>setMeetDate(e.target.value)} />
+                          <input type="time" style={S.inp} value={meetTime} onChange={e=>setMeetTime(e.target.value)} />
+                        </div>
+                        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                          <Inp value={meetPlace} onChange={setMeetPlace} placeholder="Místo (výchozí: Areál)" />
+                          <Inp value={meetAtt} onChange={setMeetAtt} placeholder="Kdo (výchozí: Všichni)" />
+                        </div>
+                        <div style={{marginTop:8, textAlign:"right"}}><Btn sm onClick={addMeet}>Naplánovat</Btn></div>
+                      </div>
+                    )}
+                    {meetings.length===0?<div style={S.empty}>Nejsou plánovány žádné akce.</div>:
+                      meetings.map(m=>(
+                        <div key={m.id} style={S.meeting}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+                            <span style={S.tpill}>{m.time} u {m.place}</span>
+                            {isAdmin(cu)&&<button style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:"0.8rem"}} onClick={()=>delMeet(m.id)}>Smazat</button>}
+                          </div>
+                          <h4 style={{fontFamily:"sans-serif",margin:"0.4rem 0 0.2rem",color:"#1a5fa8"}}>{m.title}</h4>
+                          <div style={{fontSize:"0.75rem",color:"#5a6a5a"}}>Kdy: <strong>{m.date.split("-").reverse().join(".")}</strong> · Účastníci: {m.attendees}</div>
+                        </div>
+                      ))
+                    }
+                  </div>
+                </div>
+              </div>
             </div>
-            {t.desc&&<div style={{fontSize:"0.8rem",color:"#8a9a8a",marginBottom:"0.5rem"}}>{t.desc}</div>}
-            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.75rem"}}>
-              <Badge type={t.pri==="high"?"red":t.pri==="medium"?"orange":"green"}>{t.pri==="high"?"Vysoká":t.pri==="medium"?"Střední":"Nízká"}</Badge>
-              <Badge type="blue">👤 {t.who}</Badge>
-              <Badge>📅 {t.date}</Badge>
+          )}
+
+          {/* TASKS */}
+          {page==="tasks" && (
+            <div>
+              <div style={S.pageTitle}>
+                <span>📋 Přehled firemních úkolů</span>
+                <Btn onClick={()=>setTModal(true)}>+ Nový úkol</Btn>
+              </div>
+              
+              <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:"1.25rem"}}>
+                {tasks.length===0&&<div style={{gridColumn:"1/-1"}}><div style={S.empty}>Žádné úkoly k zobrazení.</div></div>}
+                {tasks.map(t=>(
+                  <div key={t.id} style={S.tcard(t.pri, t.done)}>
+                    <div style={{display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"0.5rem"}}>
+                      <Badge type={t.pri==="high"?"red":t.pri==="medium"?"orange":"green"}>
+                        {t.pri==="high"?"Vysoká prioritou":t.pri==="medium"?"Střední prioritou":"Nízká prioritou"}
+                      </Badge>
+                      <div style={{display:"flex",gap:8}}>
+                        <input type="checkbox" checked={t.done} onChange={()=>toggleTask(t.id)} style={{width:16,height:16,cursor:"pointer"}} />
+                        {isAdmin(cu)&&<button style={{background:"none",border:"none",color:"#dc2626",cursor:"pointer",fontSize:"1rem",lineHeight:1}} onClick={()=>deleteTask(t.id)}>×</button>}
+                      </div>
+                    </div>
+                    <h4 style={{fontSize:"1.05rem",textDecoration:t.done?"line-through":"none",color:t.done?"#8a9a8a":"#1a3d1a",marginBottom:"0.25rem"}}>{t.name}</h4>
+                    {t.desc&&<p style={{fontSize:"0.8rem",color:"#6b7a6b",marginBottom:"0.75rem"}}>{t.desc}</p>}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",borderTop:"1px solid rgba(0,0,0,0.05)",paddingTop:"0.5rem",fontSize:"0.75rem",color:"#8a9a8a"}}>
+                      <span>Přiřazeno: <strong>{t.who}</strong></span>
+                      <span>{t.date.split("-").reverse().join(".")}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Modal open={tModal} onClose={()=>setTModal(false)} title="📋 Vytvořit nový firemní úkol">
+                <div style={S.fgroup}>
+                  <label style={S.flabel}>Znění úkolu *</label>
+                  <Inp value={tName} onChange={setTName} placeholder="např. Přesadit růže ve skleníku" />
+                </div>
+                <div style={S.formRow}>
+                  <div>
+                    <label style={S.flabel}>Odpovědná osoba</label>
+                    <select style={S.inp} value={tWho} onChange={e=>setTWho(e.target.value)}>
+                      <option value="Všichni">Všichni zaměstnanci</option>
+                      {Object.values(users).filter(u=>u.active).map(u=><option key={u.name} value={u.name}>{u.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={S.flabel}>Priorita</label>
+                    <select style={S.inp} value={tPri} onChange={e=>setTPri(e.target.value)}>
+                      <option value="low">🟢 Nízká</option>
+                      <option value="medium">🟡 Střední</option>
+                      <option value="high">🔴 Vysoká</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={S.fgroup}>
+                  <label style={S.flabel}>Bližší popis / detaily</label>
+                  <textarea style={{...S.inp,height:60,resize:"none"}} value={tDesc} onChange={e=>setTDesc(e.target.value)} placeholder="Nepovinné upřesnění úkolu..." />
+                </div>
+                <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}>
+                  <Btn onClick={addTask}>Vytvořit</Btn>
+                  <Btn type="outline" onClick={()=>setTModal(false)}>Zrušit</Btn>
+                </div>
+              </Modal>
             </div>
-            <label style={{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.83rem",cursor:"pointer",color:"#5a6a5a"}}>
-              <input type="checkbox" checked={t.done} onChange={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,done:!x.done}:x))}/> Hotovo
-            </label>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+          )}
 
-// ── ATTENDANCE ────────────────────────────────────────
-function AttendanceAddForm({users,allAttendance,setAllAttendance,notify,defaultLogin}){
-  const [whoLogin,setWhoLogin]=useState(defaultLogin||"");
-  const [nDate,setNDate]=useState(nowDate());
-  const [nIn,setNIn]=useState("");
-  const [nOut,setNOut]=useState("");
-  const [nSt,setNSt]=useState("ok");
-  const stOpts=[{v:"ok",l:"Přítomen"},{v:"late",l:"Pozdní příchod"},{v:"absence",l:"Absence"}];
-  const empOpts=Object.entries(users).filter(([,u])=>u.role!=="admin"&&u.active).map(([login,u])=>({v:login,l:u.name}));
-  function add(){
-    if(!whoLogin){notify("Vyberte zaměstnance");return;}
-    if(!nDate){notify("Zadejte datum");return;}
-    setAllAttendance(prev=>{
-      const list=getUserRecords(prev,whoLogin);
-      const next=[...list,{date:nDate,in:nIn,out:nOut,status:nSt}].sort((a,b)=>b.date.localeCompare(a.date));
-      return setUserRecords(prev,whoLogin,next);
-    });
-    setNIn("");setNOut("");setNSt("ok");setNDate(nowDate());
-    notify("✅ Docházka zapsána pro "+(users[whoLogin]?.name||whoLogin));
-  }
-  return (
-    <div style={S.addForm}>
-      <div style={{fontWeight:600,fontSize:"1rem",color:"#2d5a27",marginBottom:"1rem"}}>➕ Zapsat docházku zaměstnanci</div>
-      <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><label style={S.flabel}>Zaměstnanec *</label><Sel value={whoLogin} onChange={setWhoLogin} options={[{v:"",l:"— vyberte —"},...empOpts]}/></div>
-      <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr 1fr"}}>
-        <div><label style={S.flabel}>Datum *</label><input style={S.inp} type="date" value={nDate} onChange={e=>setNDate(e.target.value)}/></div>
-        <div><label style={S.flabel}>Příchod</label><input style={S.inp} type="time" value={nIn} onChange={e=>setNIn(e.target.value)}/></div>
-        <div><label style={S.flabel}>Odchod</label><input style={S.inp} type="time" value={nOut} onChange={e=>setNOut(e.target.value)}/></div>
-      </div>
-      <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><label style={S.flabel}>Stav</label><Sel value={nSt} onChange={setNSt} options={stOpts}/></div>
-      <Btn onClick={add}>✅ Uložit docházku</Btn>
-    </div>
-  );
-}
+          {/* CHAT */}
+          {page==="chat" && (
+            <div>
+              <div style={S.pageTitle}>💬 Vnitrofiremní chat / Interní zprávy</div>
+              <div style={S.chatLayout}>
+                <div style={S.chatUsers}>
+                  <div style={{fontSize:"0.7rem",fontWeight:700,color:"#b0bab0",textTransform:"uppercase",letterSpacing:1,marginBottom:8,paddingLeft:4}}>Kolegové</div>
+                  {Object.entries(users).filter(([k,u])=>k!==cu.login&&u.active).map(([k,u])=>(
+                    <div key={k} style={S.chatUser(selChat===k)} onClick={()=>setSelChat(k)}>
+                      <Avatar initials={u.initials} color={u.color} size={28} />
+                      <div style={{flex:1,overflow:"hidden"}}>
+                        <div style={{fontSize:"0.85rem",fontWeight:500,color:"#1a3d1a",textOverflow:"ellipsis",whiteSpace:"nowrap",overflow:"hidden"}}>{u.name}</div>
+                        <div style={{fontSize:"0.7rem",color:"#8a9a8a"}}>{u.role==="admin"?"Správce":u.pos}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
-function Attendance({cu,users,allAttendance,setAllAttendance,checkedIn,setCheckedIn,notify}){
-  const adm=isAdmin(cu);
-  const firstEmp=Object.keys(users).find(k=>users[k].role!=="admin"&&users[k].active)||cu.login;
-  const [viewLogin,setViewLogin]=useState(adm?firstEmp:cu.login);
-  const [editModal,setEditModal]=useState(false);
-  const [addModal,setAddModal]=useState(false);
-  const [editIdx,setEditIdx]=useState(null);
-  const [eDate,setEDate]=useState(""); const [eIn,setEIn]=useState(""); const [eOut,setEOut]=useState(""); const [eSt,setESt]=useState("ok");
-  const [nDate,setNDate]=useState(nowDate()); const [nIn,setNIn]=useState(""); const [nOut,setNOut]=useState(""); const [nSt,setNSt]=useState("ok");
-  const stOpts=[{v:"ok",l:"Přítomen"},{v:"late",l:"Pozdní příchod"},{v:"absence",l:"Absence"}];
-  const empOpts=Object.entries(users).filter(([,u])=>u.role!=="admin"&&u.active).map(([login,u])=>({v:login,l:u.name}));
-  const viewUser=users[viewLogin]||cu;
-  const records=getUserRecords(allAttendance,viewLogin);
-  const isOwn=viewLogin===cu.login;
+                <div style={S.chatMain}>
+                  {selChat ? (
+                    <>
+                      <div style={{display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid rgba(58,125,68,0.1)",paddingBottom:"0.75rem",marginBottom:"0.5rem"}}>
+                        <Avatar initials={users[selChat]?.initials} color={users[selChat]?.color} size={32} />
+                        <div>
+                          <h4 style={{fontSize:"0.95rem",color:"#1a3d1a"}}>{users[selChat]?.name}</h4>
+                          <span style={{fontSize:"0.72rem",color:"#8a9a8a"}}>{users[selChat]?.pos}</span>
+                        </div>
+                      </div>
+                      <div style={S.chatMsgs}>
+                        {asArray(msgs[chatKey(cu.login, selChat)]).length===0 && <div style={{...S.empty,marginTop:"auto",marginBottom:"auto"}}>Žádné předchozí zprávy. Začněte konverzaci!</div>}
+                        {asArray(msgs[chatKey(cu.login, selChat)]).map((m,i)=>(
+                          <div key={i} style={S.mrow(m.from===cu.login)}>
+                            <div style={S.mbubble(m.from===cu.login)}>
+                              <div>{m.text}</div>
+                              <div style={{...S.mtime,textAlign:m.from===cu.login?"right":"left",color:m.from===cu.login?"rgba(255,255,255,0.6)":"#b0bab0"}}>{m.time}</div>
+                            </div>
+                          </div>
+                        ))}
+                        <div ref={msgsEndRef} />
+                      </div>
+                      <div style={S.cinputWrap}>
+                        <textarea style={S.cinput} rows={1} value={chatInp} onChange={e=>setChatInp(e.target.value)} placeholder={`Napište zprávu pro: ${users[selChat]?.name}...`} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}} />
+                        <button style={S.sendBtn} onClick={sendChat}>➔</button>
+                      </div>
+                    </>
+                  ) : <div style={S.empty}>Zvolte kolegu ze seznamu vlevo pro zahájení chatu.</div>}
+                </div>
+              </div>
+            </div>
+          )}
 
-  useEffect(()=>{ if(!adm) setViewLogin(cu.login); },[cu.login,adm]);
+          {/* ATTENDANCE */}
+          {page==="attendance" && (
+            <div>
+              <div style={S.pageTitle}>📅 Moje osobní docházka</div>
+              
+              <div style={{display:"grid",gridTemplateColumns:"240px 1fr",gap:"1.5rem",alignItems:"start"}}>
+                <div style={S.scard}>
+                  <h4 style={{fontSize:"0.95rem",color:"#2d5a27",marginBottom:"0.5rem"}}>Záznam přítomnosti</h4>
+                  <p style={{fontSize:"0.82rem",color:"#6b7a6b",marginBottom:"1.25rem",lineHeight:1.45}}>Zde evidujete příchod na pracoviště a odchod domů pro výpočet odpracovaných hodin.</p>
+                  <Btn type={checkedIn?"danger":"primary"} style={{width:"100%",justifyContent:"center",padding:"0.8rem"}} onClick={toggleAttendance}>
+                    {checkedIn?"🔴 Odhlásit odchod (Konec)":"🟢 Zapsat příchod (Start)"}
+                  </Btn>
+                  <div style={{textAlign:"center",fontSize:"0.78rem",color:"#8a9a8a",marginTop:"0.75rem"}}>
+                    Aktuální stav: <strong>{checkedIn?"Pracujete (Směna běží)":"Nejste na směně"}</strong>
+                  </div>
+                </div>
 
-  function patchRecords(fn){
-    setAllAttendance(prev=>setUserRecords(prev,viewLogin,fn(getUserRecords(prev,viewLogin))));
-  }
+                <div style={S.scard}>
+                  <h3 style={S.scardTitle}>Přehled záznamů za tento měsíc</h3>
+                  <div style={S.tblWrap}>
+                    <table style={{width:"100%",borderCollapse:"collapse"}}>
+                      <thead>
+                        <tr>
+                          <th style={S.th}>Datum</th>
+                          <th style={S.th}>Příchod</th>
+                          <th style={S.th}>Odchod</th>
+                          <th style={S.th}>Odpracováno</th>
+                          <th style={S.th}>Stav</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getUserRecords(attendance,cu.login).length===0?<tr><td colSpan={5} style={{...S.td,textAlign:"center",color:"#8a9a8a",padding:"2rem"}}>Žádné záznamy o docházce.</td></tr>:
+                          getUserRecords(attendance,cu.login).map((r,i)=>(
+                            <tr key={i}>
+                              <td style={{...S.td,fontWeight:500}}>{r.date.split("-").reverse().join(".")}</td>
+                              <td style={S.td}>{r.in||"—"}</td>
+                              <td style={S.td}>{r.out||"—"}</td>
+                              <td style={{...S.td,fontWeight:600,color:"#2d5a27"}}>{calcHours(r.in,r.out)}</td>
+                              <td style={S.td}>
+                                <Badge type={r.status==="ok"?"green":r.status==="late"?"orange":"red"}>
+                                  {r.status==="ok"?"V pořádku":r.status==="late"?"Pozdní příchod":"Absence"}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))
+                        }
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-  function openEdit(i){setEditIdx(i);const a=records[i];setEDate(a.date);setEIn(a.in||"");setEOut(a.out||"");setESt(a.status);setEditModal(true);}
-  function saveEdit(){
-    patchRecords(list=>{const n=[...list];n[editIdx]={date:eDate,in:eIn,out:eOut,status:eSt};return n.sort((a,b)=>b.date.localeCompare(a.date));});
-    setEditModal(false);notify("✅ Docházka uložena · synchronizováno");
-  }
-  function delRow(){patchRecords(list=>list.filter((_,i)=>i!==editIdx));setEditModal(false);notify("🗑️ Smazáno");}
-  function addRow(){
-    if(!nDate){notify("Zadejte datum");return;}
-    patchRecords(list=>[...list,{date:nDate,in:nIn,out:nOut,status:nSt}].sort((a,b)=>b.date.localeCompare(a.date)));
-    setAddModal(false);notify("✅ Záznam přidán · synchronizováno");
-  }
+          {/* ADMIN: USERS */}
+          {page === "admin-users" && canAccessAdmin(cu) && (
+            <div>
+              <div style={S.pageTitle}>
+                <span>👥 Správa zaměstnanců a přístupů</span>
+                <Btn onClick={()=>setAddModal(true)}>+ Nový zaměstnanec</Btn>
+              </div>
 
-  return (
-    <div>
-      <div style={S.pageTitle}>📅 Docházka
-        <div style={{display:"flex",gap:"0.75rem",flexWrap:"wrap"}}>
-          {isOwn&&!adm&&<>
-            {!checkedIn&&<Btn type="outline" onClick={()=>{const t=nowTime(),d=nowDate();patchRecords(list=>[{date:d,in:t,out:"",status:"ok"},...list]);setCheckedIn(true);notify(`✅ Příchod v ${t}`);}}>✅ Příchod</Btn>}
-            {checkedIn&&<Btn type="outline" onClick={()=>{const t=nowTime();patchRecords(list=>list.map((a,i)=>i===0?{...a,out:t}:a));setCheckedIn(false);notify(`🏠 Odchod v ${t}`);}}>🏠 Odchod</Btn>}
-          </>}
-          {adm&&<Btn onClick={()=>setAddModal(true)}>✏️ Upravit v okně</Btn>}
+              <div style={S.scard}>
+                <div style={S.tblWrap}>
+                  <table style={{width:"100%",borderCollapse:"collapse"}}>
+                    <thead>
+                      <tr>
+                        <th style={S.th}>Zástupce</th>
+                        <th style={S.th}>Uživatelské jméno</th>
+                        <th style={S.th}>Heslo</th>
+                        <th style={S.th}>Pracovní pozice</th>
+                        <th style={S.th}>Obvyklá směna</th>
+                        <th style={S.th}>Role</th>
+                        <th style={S.th}>Stav</th>
+                        <th style={S.th} style={{textAlign:"right"}}>Akce</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.entries(users).map(([log,u])=>(
+                        <tr key={log} style={{opacity:u.active?1:0.5}}>
+                          <td style={S.td}>
+                            <div style={{display:"flex",alignItems:"center",gap:8}}>
+                              <Avatar initials={u.initials} color={u.color} size={26} />
+                              <strong>{u.name}</strong>
+                            </div>
+                          </td>
+                          <td style={S.td}><code>{log}</code></td>
+                          <td style={S.td}><code>{passwords[log]||"••••"}</code></td>
+                          <td style={S.td}>{u.pos||"—"}</td>
+                          <td style={S.td}>{u.shift||"—"}</td>
+                          <td style={S.td}><span style={S.urole(u.role==="admin")}>{u.role==="admin"?"Admin":"Zaměstnanec"}</span></td>
+                          <td style={S.td}><Badge type={u.active?"green":"grey"}>{u.active?"Aktivní":"Zablokován"}</Badge></td>
+                          <td style={{...S.td,textAlign:"right"}}>
+                            <Btn type="outline" sm onClick={()=>openEdit(log)} style={{marginRight:6}}>Upravit</Btn>
+                            {log!=="adam" && log!==cu.login && (
+                              <Btn type={u.active?"danger":"primary"} sm onClick={()=>toggleUserActive(log)}>
+                                {u.active?"Zablokovat":"Aktivovat"}
+                              </Btn>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Modal Přidat */}
+              <Modal open={addModal} onClose={()=>setAddModal(false)} title="👥 Přidat nového zaměstnance">
+                <div style={S.fgroup}>
+                  <label style={S.flabel}>Celé jméno (např. Jana Nováková) *</label>
+                  <Inp value={nName} onChange={setNName} placeholder="Celé jméno" />
+                </div>
+                <div style={S.formRow}>
+                  <div>
+                    <label style={S.flabel}>Přihlašovací jméno (login) *</label>
+                    <Inp value={nLogin} onChange={setNLogin} placeholder="např. jana" />
+                  </div>
+                  <div>
+                    <label style={S.flabel}>Přihlašovací heslo *</label>
+                    <Inp value={nPass} onChange={setNPass} placeholder="Heslo" />
+                  </div>
+                </div>
+                <div style={S.formRow}>
+                  <div>
+                    <label style={S.flabel}>Pracovní pozice</label>
+                    <Inp value={nPos} onChange={setNPos} placeholder="např. Pokladní / Zahradník" />
+                  </div>
+                  <div>
+                    <label style={S.flabel}>Pracovní doba (Směna)</label>
+                    <Inp value={nShift} onChange={setNShift} placeholder="8:00–16:30" />
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}>
+                  <Btn onClick={addUser}>Přidat</Btn>
+                  <Btn type="outline" onClick={()=>setAddModal(false)}>Zrušit</Btn>
+                </div>
+              </Modal>
+
+              {/* Modal Upravit */}
+              <Modal open={editModal} onClose={()=>setEditModal(false)} title="✏️ Upravit údaje zaměstnance">
+                <div style={S.fgroup}>
+                  <label style={S.flabel}>Celé jméno *</label>
+                  <Inp value={eName} onChange={setEName} placeholder="Celé jméno" />
+                </div>
+                <div style={S.formRow}>
+                  <div>
+                    <label style={S.flabel}>Pracovní pozice</label>
+                    <Inp value={ePos} onChange={setEPos} placeholder="Pozice" />
+                  </div>
+                  <div>
+                    <label style={S.flabel}>Pracovní doba (Směna)</label>
+                    <Inp value={eShift} onChange={setEShift} placeholder="Směna" />
+                  </div>
+                </div>
+                <div style={S.fgroup}>
+                  <label style={S.flabel}>Změnit heslo (ponechte prázdné pro zachování stávajícího)</label>
+                  <Inp value={ePass} onChange={setEPass} placeholder="Nové heslo" type="text" />
+                </div>
+                <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}>
+                  <Btn onClick={saveUser}>Uložit změny</Btn>
+                  <Btn type="outline" onClick={()=>setEditModal(false)}>Zrušit</Btn>
+                </div>
+              </Modal>
+            </div>
+          )}
+
+          {/* ADMIN: ATTENDANCE */}
+          {page === "admin-attendance" && canAccessAdmin(cu) && (
+            <div>
+              <div style={S.pageTitle}>📊 Celkový přehled docházky týmu</div>
+              
+              {Object.entries(users).filter(([,u])=>u.role!=="admin").map(([log,u])=>{
+                const recs=getUserRecords(attendance,log);
+                return (
+                  <div key={log} style={S.scard}>
+                    <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:"1rem"}}>
+                      <Avatar initials={u.initials} color={u.color} size={32} />
+                      <div>
+                        <h4 style={{fontSize:"1.05rem",color:"#1a3d1a"}}>{u.name}</h4>
+                        <span style={{fontSize:"0.78rem",color:"#8a9a8a"}}>{u.pos} · Smluvní doba: {u.shift}</span>
+                      </div>
+                    </div>
+
+                    <div style={S.tblWrap}>
+                      <table style={{width:"100%",borderCollapse:"collapse"}}>
+                        <thead>
+                          <tr>
+                            <th style={S.th}>Datum</th>
+                            <th style={S.th}>Příchod (In)</th>
+                            <th style={S.th}>Odchod (Out)</th>
+                            <th style={S.th}>Odpracovaný čas</th>
+                            <th style={S.th}>Vyhodnocení</th>
+                            <th style={S.th} style={{textAlign:"right"}}>Ruční úprava</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recs.length===0?<tr><td colSpan={6} style={{...S.td,textAlign:"center",color:"#8a9a8a",padding:"1rem"}}>Tento zaměstnanec zatím nemá v tomto měsíci žádné záznamy.</td></tr>:
+                            recs.map((r,idx)=>{
+                              function setStatus(st){
+                                const n=[...recs];
+                                n[idx]={...r,status:st};
+                                setAttendanceCloud(setUserRecords(attendance,log,n));
+                              }
+                              return (
+                                <tr key={idx}>
+                                  <td style={{...S.td,fontWeight:500}}>{r.date.split("-").reverse().join(".")}</td>
+                                  <td style={S.td}>{r.in||"—"}</td>
+                                  <td style={S.td}>{r.out||"—"}</td>
+                                  <td style={{...S.td,fontWeight:600,color:"#2d5a27"}}>{calcHours(r.in,r.out)}</td>
+                                  <td style={S.td}>
+                                    <Badge type={r.status==="ok"?"green":r.status==="late"?"orange":"red"}>
+                                      {r.status==="ok"?"V pořádku":r.status==="late"?"Pozdní příchod":"Absence"}
+                                    </Badge>
+                                  </td>
+                                  <td style={{...S.td,textAlign:"right"}}>
+                                    <select style={{...S.inp,padding:"3px 8px",width:"auto",fontSize:"0.78rem"}} value={r.status} onChange={e=>setStatus(e.target.value)}>
+                                      <option value="ok">Schválit: OK</option>
+                                      <option value="late">Označit: Pozdě</option>
+                                      <option value="absence">Označit: Absence</option>
+                                    </select>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
         </div>
       </div>
-      {adm&&<AttendanceAddForm users={users} allAttendance={allAttendance} setAllAttendance={setAllAttendance} notify={notify} defaultLogin={viewLogin}/>}
-      {adm&&<div style={{...S.scard,marginBottom:"1.25rem"}}>
-        <div style={S.scardTitle}>👤 Prohlížet záznamy zaměstnance</div>
-        <Sel value={viewLogin} onChange={setViewLogin} options={empOpts.length?empOpts:[{v:cu.login,l:cu.name}]}/>
-      </div>}
-      <div style={{...S.scard,marginBottom:"1.5rem"}}>
-        <div style={{display:"flex",gap:"1.5rem",alignItems:"center"}}>
-          <Avatar initials={viewUser.initials} color={viewUser.color} size={52}/>
-          <div>
-            <div style={{fontWeight:600,fontSize:"1.05rem"}}>{viewUser.name}{adm&&!isOwn?" (evidence admina)":""}</div>
-            <div style={{color:"#8a9a8a",fontSize:"0.82rem"}}>{viewUser.pos}</div>
-            <span style={{...S.tpill,marginTop:"0.3rem",display:"inline-block"}}>{viewUser.shift}</span>
-          </div>
-        </div>
-      </div>
-      <div style={S.scard}>
-        <div style={S.scardTitle}>Záznamy ({records.length})</div>
-        {records.length===0&&<div style={S.empty}>Žádné záznamy · admin může přidat tlačítkem výše</div>}
-        <div style={S.tblWrap}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr>
-              <th style={S.th}>Datum</th><th style={S.th}>Příchod</th><th style={S.th}>Odchod</th><th style={S.th}>Odpracováno</th><th style={S.th}>Stav</th>
-              {adm&&<th style={S.th}>Akce</th>}
-            </tr></thead>
-            <tbody>
-              {records.map((a,i)=>(
-                <tr key={i}>
-                  <td style={S.td}>{a.date}</td>
-                  <td style={S.td}>{a.in?<span style={S.tpill}>{a.in}</span>:"—"}</td>
-                  <td style={S.td}>{a.out?<span style={S.tpill}>{a.out}</span>:"—"}</td>
-                  <td style={S.td}><strong>{calcHours(a.in,a.out)}</strong></td>
-                  <td style={S.td}><Badge type={a.status==="ok"?"green":a.status==="late"?"orange":"red"}>{a.status==="ok"?"Přítomen":a.status==="late"?"Pozdní":"Absence"}</Badge></td>
-                  {adm&&<td style={S.td}><Btn type="outline" sm onClick={()=>openEdit(i)}>✏️</Btn></td>}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <Modal open={editModal} onClose={()=>setEditModal(false)} title={"✏️ Upravit · "+viewUser.name.split(" ")[0]}>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><input style={S.inp} type="date" value={eDate} onChange={e=>setEDate(e.target.value)}/><Sel value={eSt} onChange={setESt} options={stOpts}/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><input style={S.inp} type="time" value={eIn} onChange={e=>setEIn(e.target.value)}/><input style={S.inp} type="time" value={eOut} onChange={e=>setEOut(e.target.value)}/></div>
-        <div style={{display:"flex",gap:"0.75rem",marginTop:"1rem"}}><Btn onClick={saveEdit}>Uložit</Btn><Btn type="danger" onClick={delRow}>Smazat</Btn><Btn type="outline" onClick={()=>setEditModal(false)}>Zrušit</Btn></div>
-      </Modal>
-      <Modal open={addModal} onClose={()=>setAddModal(false)} title={"➕ Zapsat docházku · "+viewUser.name.split(" ")[0]}>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><input style={S.inp} type="date" value={nDate} onChange={e=>setNDate(e.target.value)}/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><input style={S.inp} type="time" value={nIn} onChange={e=>setNIn(e.target.value)}/><input style={S.inp} type="time" value={nOut} onChange={e=>setNOut(e.target.value)}/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Sel value={nSt} onChange={setNSt} options={stOpts}/></div>
-        <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}><Btn onClick={addRow}>Uložit záznam</Btn><Btn type="outline" onClick={()=>setAddModal(false)}>Zrušit</Btn></div>
-      </Modal>
-    </div>
-  );
-}
-
-// ── ANNOUNCEMENTS ─────────────────────────────────────
-function Announcements({cu,announcements,setAnnouncements,notify}){
-  const [show,setShow]=useState(false);
-  const [title,setTitle]=useState(""); const [text,setText]=useState("");
-  function add(){
-    if(!title.trim()||!text.trim()){notify("Vyplňte nadpis i text");return;}
-    const now=new Date();
-    setAnnouncements(p=>[{id:Date.now(),author:cu.name,title,text,time:now.toLocaleDateString("cs-CZ")+" "+now.toTimeString().slice(0,5)},...p]);
-    setTitle("");setText("");setShow(false);notify("📢 Oznámení zveřejněno");
-  }
-  return (
-    <div>
-      <div style={S.pageTitle}>📢 Oznámení
-        {isAdmin(cu)&&<Btn onClick={()=>setShow(s=>!s)}>+ Přidat oznámení</Btn>}
-      </div>
-      {show&&<div style={S.addForm}>
-        <div style={{fontWeight:600,marginBottom:"1rem",color:"#2d5a27"}}>Nové oznámení</div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={title} onChange={setTitle} placeholder="Nadpis"/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><textarea style={S.inp} value={text} onChange={e=>setText(e.target.value)} rows={3} placeholder="Text oznámení…"/></div>
-        <div style={{display:"flex",gap:"0.5rem"}}><Btn onClick={add}>Zveřejnit</Btn><Btn type="outline" onClick={()=>setShow(false)}>Zrušit</Btn></div>
-      </div>}
-      {announcements.length===0&&<div style={S.empty}><div style={{fontSize:"2rem"}}>📢</div>Žádná oznámení</div>}
-      {announcements.map(a=>(
-        <div key={a.id} style={S.ann}>
-          <div style={{fontSize:"0.75rem",color:"#8a9a8a",marginBottom:"0.35rem",display:"flex",alignItems:"center",gap:"0.75rem"}}>
-            📢 {a.author} · {a.time}
-            {isAdmin(cu)&&<Btn type="danger" sm onClick={()=>{setAnnouncements(p=>p.filter(x=>x.id!==a.id));notify("🗑️ Smazáno");}}>✕</Btn>}
-          </div>
-          <div style={{fontWeight:600,fontSize:"0.98rem",color:"#2d5a27",marginBottom:"0.35rem"}}>{a.title}</div>
-          <div style={{fontSize:"0.9rem",lineHeight:1.6}}>{a.text}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── MEETINGS ──────────────────────────────────────────
-function Meetings({cu,meetings,setMeetings,notify}){
-  const [show,setShow]=useState(false);
-  const [title,setTitle]=useState(""); const [date,setDate]=useState(nowDate());
-  const [time,setTime]=useState(""); const [place,setPlace]=useState("");
-  const [desc,setDesc]=useState(""); const [att,setAtt]=useState("Všichni");
-  function add(){
-    if(!title.trim()||!date){notify("Zadejte název a datum");return;}
-    setMeetings(p=>[...p,{id:Date.now(),title,date,time,place,desc,attendees:att}].sort((a,b)=>a.date.localeCompare(b.date)));
-    setTitle("");setTime("");setPlace("");setDesc("");setAtt("Všichni");setShow(false);notify("🤝 Schůze přidána");
-  }
-  return (
-    <div>
-      <div style={S.pageTitle}>🤝 Schůze & Akce
-        {isAdmin(cu)&&<Btn onClick={()=>setShow(s=>!s)}>+ Přidat schůzi</Btn>}
-      </div>
-      {show&&<div style={S.addForm}>
-        <div style={{fontWeight:600,marginBottom:"1rem",color:"#2d5a27"}}>Nová schůze / akce</div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={title} onChange={setTitle} placeholder="Název schůze"/><input style={S.inp} type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><input style={S.inp} type="time" value={time} onChange={e=>setTime(e.target.value)}/><Inp value={place} onChange={setPlace} placeholder="Místo konání"/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><textarea style={S.inp} value={desc} onChange={e=>setDesc(e.target.value)} rows={2} placeholder="Popis / program…"/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={att} onChange={setAtt} placeholder="Účastníci"/></div>
-        <div style={{display:"flex",gap:"0.5rem"}}><Btn onClick={add}>Přidat</Btn><Btn type="outline" onClick={()=>setShow(false)}>Zrušit</Btn></div>
-      </div>}
-      {meetings.length===0&&<div style={S.empty}><div style={{fontSize:"2rem"}}>🤝</div>Žádné schůze</div>}
-      {meetings.map(m=>(
-        <div key={m.id} style={S.meeting}>
-          <div style={{fontSize:"0.75rem",color:"#8a9a8a",marginBottom:"0.35rem",display:"flex",alignItems:"center",gap:"0.75rem"}}>
-            📅 {m.date} · ⏰ {m.time||"—"} · 📍 {m.place||"—"}
-            {isAdmin(cu)&&<Btn type="danger" sm onClick={()=>{setMeetings(p=>p.filter(x=>x.id!==m.id));notify("🗑️ Smazáno");}}>✕</Btn>}
-          </div>
-          <div style={{fontWeight:600,fontSize:"0.98rem",color:"#1a5fa8",marginBottom:"0.35rem"}}>{m.title}</div>
-          {m.desc&&<div style={{fontSize:"0.88rem",lineHeight:1.55,marginBottom:"0.35rem"}}>{m.desc}</div>}
-          <div style={{fontSize:"0.8rem",color:"#8a9a8a"}}>👥 {m.attendees}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ── ADMIN ─────────────────────────────────────────────
-function Admin({cu,users,setUsers,allAttendance,setAllAttendance,passwords,setPasswords,tasks,setTasks,announcements,setAnnouncements,meetings,setMeetings,msgs,setMsgs,notify}){
-  if(!canAccessAdmin(cu)) return <div style={S.empty}>⛔ Přístup odepřen – pouze administrátor.</div>;
-  const [addModal,setAddModal]=useState(false);
-  const [editModal,setEditModal]=useState(false);
-  const [editLogin,setEditLogin]=useState("");
-  const [nName,setNName]=useState(""); const [nLogin,setNLogin]=useState(""); const [nPass,setNPass]=useState(""); const [nPos,setNPos]=useState(""); const [nShift,setNShift]=useState("");
-  const [eName,setEName]=useState(""); const [ePos,setEPos]=useState(""); const [eShift,setEShift]=useState(""); const [ePass,setEPass]=useState("");
-  const [bc,setBc]=useState("");
-  const emps = Object.entries(users).filter(([,u])=>u.role!=="admin");
-  const colors=["#3a7d44","#1a5fa8","#993556","#7a3d9a","#c0551a"];
-
-  function addUser(){
-    if(!nName.trim()||!nLogin.trim()||!nPass){notify("Vyplňte jméno, login a heslo");return;}
-    if(users[nLogin]){notify("Tento login již existuje");return;}
-    const parts=nName.split(" "); const initials=(parts[0][0]+(parts[1]?parts[1][0]:"")).toUpperCase();
-    const color=colors[Object.keys(users).length%colors.length];
-    setUsers(p=>({...p,[nLogin]:{name:nName,role:"employee",initials,pos:nPos||"Zahradník",shift:nShift||"8:00–16:00",color,active:true}}));
-    setPasswords(p=>({...p,[nLogin]:nPass}));
-    setAllAttendance(p=>({...p,[nLogin]:[]}));
-    setNName("");setNLogin("");setNPass("");setNPos("");setNShift("");setAddModal(false);
-    notify(`✅ Zaměstnanec ${nName} přidán`);
-  }
-  function openEdit(login){
-    const u=users[login];setEditLogin(login);setEName(u.name);setEPos(u.pos);setEShift(u.shift);setEPass("");setEditModal(true);
-  }
-  function saveEdit(){
-    if(!eName.trim()){notify("Zadejte jméno");return;}
-    const parts=eName.split(" "); const initials=(parts[0][0]+(parts[1]?parts[1][0]:"")).toUpperCase();
-    setUsers(p=>({...p,[editLogin]:{...p[editLogin],name:eName,initials,pos:ePos||p[editLogin].pos,shift:eShift||p[editLogin].shift}}));
-    if(ePass) setPasswords(p=>({...p,[editLogin]:ePass}));
-    setEditModal(false);notify("✅ Zaměstnanec upraven");
-  }
-  function toggleActive(login){
-    setUsers(p=>({...p,[login]:{...p[login],active:!p[login].active}}));
-    notify(users[login].active?"🚫 Zaměstnanec deaktivován":"✅ Účet aktivován");
-  }
-  function broadcastMsg(){
-    if(!bc.trim()){notify("Napište zprávu");return;}
-    const t=nowTime();
-    const upd={...msgs};
-    Object.keys(users).filter(k=>users[k].role!=="admin"&&users[k].active).forEach(k=>{
-      const key=chatKey(cu.login,k);
-      if(!upd[key])upd[key]=[];
-      upd[key]=[...upd[key],{from:cu.login,text:`📡 ${bc}`,time:t}];
-    });
-    setMsgs(upd);setBc("");notify("📡 Zpráva odeslána všem");
-  }
-
-  return (
-    <div>
-      <div style={S.pageTitle}>⚙️ Admin panel</div>
-      <div style={S.scard}>
-        <div style={S.scardTitle}>👥 Správa zaměstnanců</div>
-        <div style={{marginBottom:"1rem"}}><Btn onClick={()=>setAddModal(true)}>+ Přidat zaměstnance</Btn></div>
-        <div style={S.tblWrap}>
-          <table style={{width:"100%",borderCollapse:"collapse"}}>
-            <thead><tr><th style={S.th}>Jméno</th><th style={S.th}>Pozice</th><th style={S.th}>Směna</th><th style={S.th}>Stav</th><th style={S.th}>Akce</th></tr></thead>
-            <tbody>
-              {emps.map(([login,u])=>(
-                <tr key={login}>
-                  <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}><Avatar initials={u.initials} color={u.color} size={28}/>{u.name}</div></td>
-                  <td style={S.td}><span style={{fontSize:"0.82rem",color:"#8a9a8a"}}>{u.pos}</span></td>
-                  <td style={S.td}><span style={S.tpill}>{u.shift}</span></td>
-                  <td style={S.td}><Badge type={u.active?"green":"red"}>{u.active?"Aktivní":"Deaktivován"}</Badge></td>
-                  <td style={{...S.td,display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
-                    <Btn type="outline" sm onClick={()=>openEdit(login)}>✏️ Upravit</Btn>
-                    <Btn type="danger" sm onClick={()=>toggleActive(login)}>{u.active?"🚫 Vyhodit":"✅ Aktivovat"}</Btn>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div style={S.scard}>
-        <TaskAddForm users={users} tasks={tasks} setTasks={setTasks} notify={notify} title="📋 Přidat úkol (admin panel)"/>
-      </div>
-      <div style={S.scard}>
-        <AttendanceAddForm users={users} allAttendance={allAttendance} setAllAttendance={setAllAttendance} notify={notify}/>
-      </div>
-      <div style={S.scard}>
-        <div style={S.scardTitle}>📡 Zpráva všem zaměstnancům</div>
-        <textarea style={{...S.inp,marginBottom:"1rem",resize:"vertical"}} value={bc} onChange={e=>setBc(e.target.value)} rows={3} placeholder="Napište zprávu pro všechny zaměstnance…"/>
-        <Btn onClick={broadcastMsg}>📡 Odeslat všem</Btn>
-      </div>
-      <div style={S.scard}>
-        <div style={S.scardTitle}>📋 Seznam úkolů</div>
-        {asArray(tasks).length===0&&<div style={S.empty}>Žádné úkoly</div>}
-        {asArray(tasks).map(t=>(
-          <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
-            <div style={{flex:1,fontSize:"0.88rem",textDecoration:t.done?"line-through":"none"}}>{t.name} <span style={{color:"#8a9a8a"}}>({t.who})</span></div>
-            <Btn type="outline" sm onClick={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,done:!x.done}:x))}>{t.done?"↩":"✓"}</Btn>
-            <Btn type="danger" sm onClick={()=>{setTasks(p=>p.filter(x=>x.id!==t.id));notify("🗑️ Úkol smazán");}}>✕</Btn>
-          </div>
-        ))}
-      </div>
-      <div style={S.scard}>
-        <div style={S.scardTitle}>📢 Správa oznámení</div>
-        {announcements.map(a=>(
-          <div key={a.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
-            <div style={{flex:1,fontSize:"0.88rem"}}><strong>{a.title}</strong></div>
-            <Btn type="danger" sm onClick={()=>{setAnnouncements(p=>p.filter(x=>x.id!==a.id));notify("🗑️ Smazáno");}}>✕</Btn>
-          </div>
-        ))}
-      </div>
-      <div style={S.scard}>
-        <div style={S.scardTitle}>🤝 Správa schůzí</div>
-        {meetings.map(m=>(
-          <div key={m.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
-            <div style={{flex:1,fontSize:"0.88rem"}}><strong>{m.title}</strong> <span style={{color:"#8a9a8a"}}>{m.date}</span></div>
-            <Btn type="danger" sm onClick={()=>{setMeetings(p=>p.filter(x=>x.id!==m.id));notify("🗑️ Smazáno");}}>✕</Btn>
-          </div>
-        ))}
-      </div>
-      <div style={S.scard}>
-        <div style={S.scardTitle}>📊 Přehled systému</div>
-        <div style={S.statGrid}>
-          {[{l:"Zaměstnanců",v:emps.length,s:"celkem"},{l:"Aktivních",v:emps.filter(([,u])=>u.active).length,s:""},{l:"Otevřených úkolů",v:asArray(tasks).filter(t=>!t.done).length,s:""},{l:"Splněných úkolů",v:asArray(tasks).filter(t=>t.done).length,s:""},{l:"Schůzí",v:meetings.length,s:""},{l:"Oznámení",v:announcements.length,s:""}]
-            .map(s=><div key={s.l} style={S.statCard}><div style={S.statLabel}>{s.l}</div><div style={S.statValue}>{s.v}</div><div style={S.statSub}>{s.s}</div></div>)}
-        </div>
-      </div>
-
-      <Modal open={addModal} onClose={()=>setAddModal(false)} title="➕ Přidat zaměstnance">
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={nName} onChange={setNName} placeholder="Celé jméno (např. Jana Nováková)"/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={nLogin} onChange={setNLogin} placeholder="Login"/><Inp value={nPass} onChange={setNPass} placeholder="Heslo" type="password"/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={nPos} onChange={setNPos} placeholder="Pozice"/><Inp value={nShift} onChange={setNShift} placeholder="Směna (8:00–16:00)"/></div>
-        <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}><Btn onClick={addUser}>Přidat</Btn><Btn type="outline" onClick={()=>setAddModal(false)}>Zrušit</Btn></div>
-      </Modal>
-      <Modal open={editModal} onClose={()=>setEditModal(false)} title="✏️ Upravit zaměstnance">
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={eName} onChange={setEName} placeholder="Celé jméno"/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={ePos} onChange={setEPos} placeholder="Pozice"/><Inp value={eShift} onChange={setEShift} placeholder="Směna"/></div>
-        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={ePass} onChange={setEPass} placeholder="Nové heslo (prázdné = beze změny)" type="password"/></div>
-        <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}><Btn onClick={saveEdit}>Uložit</Btn><Btn type="outline" onClick={()=>setEditModal(false)}>Zrušit</Btn></div>
-      </Modal>
     </div>
   );
 }
