@@ -1,0 +1,1120 @@
+﻿<!DOCTYPE html>
+<!--
+  ═══════════════════════════════════════════════════════════
+  ZAHRADNÍ SYSTÉM – JEDEN SOUBOR (vše je uvnitř tohoto HTML)
+  ═══════════════════════════════════════════════════════════
+  Na web nahrajte POUZE: zahrada.html  (nebo index.html – stejný obsah)
+
+  NEPOTŘEBUJETE žádný jiný soubor z počítače:
+    × zahrada-app.jsx
+    × zahrada-system.jsx
+    × JS.js
+
+  Potřebujete INTERNET + Firebase (cloud):
+    - Nahrajte index.html na web (Wedos, Forpsi, GitHub Pages…)
+    - Na všech PC otevírejte STEJNOU webovou adresu
+    - V Firebase nastavte pravidla: viz firebase-pravidla.txt na ploše
+  ═══════════════════════════════════════════════════════════
+-->
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Zahradní systém – interní portál pro zaměstnance a administrátora">
+<title>🌿 Zahradní systém</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'DM Sans',sans-serif;background:#f7f3ec;color:#2a2a2a;min-height:100vh;}#root{min-height:100vh;}</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+</head>
+<body>
+<div id="root">
+  <div id="boot" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;color:#2d5a27">
+    <div style="width:44px;height:44px;border:3px solid rgba(58,125,68,0.2);border-top-color:#3a7d44;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:1rem"></div>
+    <div>Načítám zahradní systém…</div>
+    <div style="font-size:0.8rem;color:#8a9a8a;margin-top:0.5rem">Stačí tento jeden soubor · první načtení 10–20 s</div>
+  </div>
+</div>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<script>
+try{
+  firebase.initializeApp({apiKey:"AIzaSyChLAQmzNz3tXtWWwpjwt8_P7fwdOwqvC8",authDomain:"test-stranky-94ae7.firebaseapp.com",projectId:"test-stranky-94ae7",storageBucket:"test-stranky-94ae7.firebasestorage.app",messagingSenderId:"414055116493",appId:"1:414055116493:web:00e1aaa7e0172cf5428384",measurementId:"G-GY0JPDY967"});
+  window.db=firebase.firestore();
+  window.db.enablePersistence({synchronizeTabs:true}).catch(function(){});
+  window.cloudSave=function(docName,data){
+    return window.db.collection("app").doc(docName).set(data,{merge:false});
+  };
+}catch(e){ console.warn("Firebase:",e); window.db=null; window.cloudSave=null; }
+function showBootError(msg){
+  document.getElementById("root").innerHTML='<div style="padding:2rem;font-family:sans-serif;max-width:560px;margin:2rem auto"><h2 style="color:#dc2626">Chyba při spuštění</h2><pre style="background:#fee;padding:1rem;border-radius:8px;overflow:auto;font-size:13px;white-space:pre-wrap">'+msg+'</pre><p style="margin-top:1rem;color:#666;line-height:1.6">Potřebujete připojení k internetu (React, Babel). Zkuste F5 nebo dvojklik na <strong>SPUSTIT.bat</strong> na ploše.</p></div>';
+}
+window.addEventListener("load",function(){
+  try{
+    if(typeof React==="undefined") throw new Error("React se nenačetl – zkontrolujte internet.");
+    if(typeof Babel==="undefined") throw new Error("Babel se nenačetl – zkontrolujte internet.");
+    var src=document.getElementById("jsx-source").textContent;
+    var js=Babel.transform(src,{presets:["react"]}).code;
+    (0,eval)(js);
+    var rootEl=document.getElementById("root");
+    if(typeof ReactDOM.createRoot==="function") ReactDOM.createRoot(rootEl).render(React.createElement(App));
+    else ReactDOM.render(React.createElement(App),rootEl);
+  }catch(e){ showBootError(e.message||String(e)); console.error(e); }
+});
+</script>
+<script type="text/plain" id="jsx-source">
+const { useState, useRef, useEffect } = React;
+
+// ── DATA ──────────────────────────────────────────────
+const INIT_USERS = {
+  adam:  { name:"Adam Šustáček",  role:"admin",    initials:"AŠ", pos:"Administrátor · Vedoucí",              shift:"8:00–17:00",  color:"#b8860b", active:true },
+  laura: { name:"Laura Kováčová", role:"employee", initials:"LA", pos:"Zástupce šéfa · Hlavní zahradník",     shift:"8:30–20:00",  color:"#3a7d44", active:true },
+  peter: { name:"Petr Dvořák",    role:"employee", initials:"PD", pos:"Zahradník",                            shift:"7:00–15:30",  color:"#1a5fa8", active:true },
+  marta: { name:"Marta Horáková", role:"employee", initials:"MH", pos:"Zahradnice",                           shift:"9:00–17:30",  color:"#993556", active:true },
+};
+const INIT_PASSWORDS = { adam:"zahrada123", laura:"kvetina", peter:"strom456", marta:"ruze789" };
+
+const INIT_MESSAGES = {
+  "adam-laura": [
+    { from:"adam", text:"Ahoj Lauro, jak probíhá dnešní den?", time:"9:15" },
+    { from:"laura", text:"Dobrý den! Vše v pořádku, rostliny jsou zalité 🌱", time:"9:18" },
+  ],
+  "adam-peter": [{ from:"adam", text:"Petře, nezapomeň na přesazování růží.", time:"8:30" }],
+  "adam-marta": [],
+  "laura-peter": [
+    { from:"laura", text:"Petře, potřebuji tvoji pomoc u skleníku!", time:"10:00" },
+    { from:"peter", text:"Jdu hned, jen dokončím záhon.", time:"10:02" },
+  ],
+  "laura-marta": [],
+  "peter-marta": [],
+};
+
+const INIT_TASKS = [
+  { id:1, name:"Zalít skleník",       who:"Laura", pri:"high",   date:"2026-05-24", done:false, desc:"Skleník č.2 a č.3" },
+  { id:2, name:"Přesadit růže",       who:"Petr",  pri:"medium", date:"2026-05-25", done:false, desc:"" },
+  { id:3, name:"Nakoupit substráty",  who:"Marta", pri:"low",    date:"2026-05-26", done:false, desc:"" },
+  { id:4, name:"Oprava závlahy",      who:"Petr",  pri:"high",   date:"2026-05-24", done:true,  desc:"Trubka č.4" },
+];
+
+const INIT_ATTENDANCE = {
+  laura:[
+    { date:"2026-05-23", in:"8:35",  out:"20:05", status:"ok" },
+    { date:"2026-05-22", in:"8:28",  out:"20:00", status:"ok" },
+    { date:"2026-05-21", in:"9:15",  out:"20:00", status:"late" },
+  ],
+  peter:[
+    { date:"2026-05-23", in:"7:02",  out:"15:28", status:"ok" },
+    { date:"2026-05-22", in:"7:00",  out:"15:30", status:"ok" },
+  ],
+  marta:[
+    { date:"2026-05-23", in:"9:05",  out:"17:35", status:"ok" },
+    { date:"2026-05-20", in:"",      out:"",       status:"absence" },
+  ],
+  adam:[],
+};
+
+const INIT_ANNOUNCEMENTS = [
+  { id:1, author:"Adam Šustáček", time:"24.5.2026 08:00", title:"Vítejte na novém portálu!", text:"Milí kolegové, s radostí oznamujeme spuštění nového systému. Vše potřebné najdete přímo zde. 😊" },
+  { id:2, author:"Adam Šustáček", time:"24.5.2026 08:30", title:"Schůze pátek 15:00", text:"V pátek 30.5. se koná povinná porada v kanceláři. Téma: plán na červen." },
+];
+
+const INIT_MEETINGS = [
+  { id:1, title:"Měsíční porada",     date:"2026-05-30", time:"15:00", place:"Kancelář",    desc:"Plánování na červen.",         attendees:"Všichni" },
+  { id:2, title:"Dodavatel substrátu",date:"2026-06-03", time:"10:00", place:"Vstupní hala",desc:"Jednání s dodavatelem.",        attendees:"Adam, Laura" },
+];
+
+// ── HELPERS ───────────────────────────────────────────
+const ORDER = ["adam","laura","peter","marta"];
+function chatKey(a,b){
+  const s=[a,b].sort((x,y)=>(ORDER.indexOf(x)===-1?99:ORDER.indexOf(x))-(ORDER.indexOf(y)===-1?99:ORDER.indexOf(y)));
+  return s[0]+"-"+s[1];
+}
+function calcHours(inT,outT){
+  if(!inT||!outT) return "—";
+  const [ih,im]=inT.split(":").map(Number),[oh,om]=outT.split(":").map(Number);
+  const m=(oh*60+om)-(ih*60+im);
+  if(m<=0) return "—";
+  return `${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
+}
+function nowTime(){ return new Date().toTimeString().slice(0,5); }
+function nowDate(){ return new Date().toISOString().split("T")[0]; }
+function todayLabel(){ return new Date().toLocaleDateString("cs-CZ",{weekday:"long",day:"numeric",month:"long"}); }
+function isAdmin(cu){ return !!(cu && (cu.role==="admin" || cu.login==="adam")); }
+function canAccessAdmin(cu){ return isAdmin(cu); }
+function asArray(v){ if(Array.isArray(v)) return v; if(v&&typeof v==="object") return Object.values(v); return []; }
+function normalizeTasks(raw){ return asArray(raw); }
+function normalizeAttendance(raw,users){
+  if(!raw) return {};
+  if(Array.isArray(raw)){
+    const m={};
+    Object.keys(users).forEach(k=>{m[k]=[];});
+    const first=Object.keys(users).find(k=>users[k].role!=="admin");
+    if(first) m[first]=raw;
+    return m;
+  }
+  return raw;
+}
+function getUserRecords(all,login){ return (all&&all[login])||[]; }
+function setUserRecords(all,login,records){ return {...(all||{}),[login]:records}; }
+function makeUpdater(setter,docName,onSyncEvent){
+  return function(v){
+    setter(prev=>{
+      const n=typeof v==="function"?v(prev):v;
+      if(window.cloudSave){
+        onSyncEvent&&onSyncEvent("saving");
+        window.cloudSave(docName,n).then(function(){
+          onSyncEvent&&onSyncEvent("saved");
+        }).catch(function(err){
+          onSyncEvent&&onSyncEvent("error",err.message||String(err));
+        });
+      }
+      return n;
+    });
+  };
+}
+
+// ── STYLES ────────────────────────────────────────────
+const S = {
+  // layout
+  app:{ fontFamily:"'DM Sans',sans-serif", minHeight:"100vh", background:"#f7f3ec", color:"#2a2a2a" },
+  loginPage:{ display:"flex", minHeight:"100vh", width:"100%", fontFamily:"'DM Sans',sans-serif" },
+  loginHero:{ flex:"1 1 42%", minWidth:280, minHeight:"100vh", background:"linear-gradient(165deg,#0f2812 0%,#1a3d1a 35%,#2d5a27 70%,#4a9e55 100%)", color:"#fff", display:"flex", flexDirection:"column", justifyContent:"center", padding:"clamp(2rem,5vw,4rem)", position:"relative", overflow:"hidden" },
+  loginHeroOrb:(n)=>({ position:"absolute", borderRadius:"50%", background:n===1?"rgba(255,255,255,0.06)":"rgba(180,220,160,0.12)", pointerEvents:"none" }),
+  loginHeroTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"clamp(2rem,4vw,2.75rem)", lineHeight:1.15, margin:"0 0 1rem", position:"relative", zIndex:1 },
+  loginHeroText:{ fontSize:"1rem", opacity:0.88, lineHeight:1.65, maxWidth:360, margin:0, position:"relative", zIndex:1 },
+  loginHeroFeat:{ display:"flex", flexDirection:"column", gap:"0.85rem", marginTop:"2.5rem", position:"relative", zIndex:1 },
+  loginHeroFeatItem:{ display:"flex", alignItems:"center", gap:"0.75rem", fontSize:"0.9rem", opacity:0.92 },
+  loginPanel:{ flex:"1 1 58%", minWidth:300, minHeight:"100vh", background:"linear-gradient(180deg,#faf8f4 0%,#f0ebe3 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:"clamp(1.5rem,4vw,3rem)" },
+  loginFormWrap:{ width:"100%", maxWidth:420 },
+  loginFormHead:{ marginBottom:"2rem" },
+  loginFormTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.85rem", color:"#1a3d1a", margin:"0 0 0.35rem" },
+  loginFormSub:{ color:"#6b7a6b", fontSize:"0.92rem", margin:0 },
+  loginCard:{ background:"#fff", borderRadius:20, padding:"2rem", boxShadow:"0 24px 64px rgba(26,61,26,0.1), 0 2px 8px rgba(0,0,0,0.04)", border:"1px solid rgba(58,125,68,0.08)" },
+  roleTabs:{ display:"grid", gridTemplateColumns:"1fr 1fr", background:"#f3f6f1", borderRadius:14, padding:5, gap:5, marginBottom:"1.75rem" },
+  rtab:(active,admin)=>({ padding:"0.75rem 0.5rem", border:"none", borderRadius:11, fontFamily:"'DM Sans',sans-serif", fontSize:"0.86rem", fontWeight:active?600:500, cursor:"pointer", transition:"all 0.22s ease", color:active?(admin?"#7a5c00":"#1a3d1a"):"#7a8a7a", background:active?(admin?"linear-gradient(135deg,#fff8e6,#fff3cd)":"#fff"):"transparent", boxShadow:active?"0 4px 14px rgba(0,0,0,0.08)":"none" }),
+  err:{ background:"#fef2f2", border:"1px solid #fecaca", color:"#b91c1c", borderRadius:12, padding:"0.75rem 1rem", fontSize:"0.88rem", marginBottom:"1.25rem", display:"flex", alignItems:"center", gap:"0.5rem" },
+  fgroup:{ marginBottom:"1.15rem" },
+  flabel:{ display:"block", fontSize:"0.8rem", fontWeight:600, color:"#3d4f3d", marginBottom:"0.45rem" },
+  finputWrap:{ position:"relative" },
+  finput:{ width:"100%", padding:"0.85rem 1rem 0.85rem 2.75rem", border:"1.5px solid #e2e8e0", borderRadius:12, background:"#fafaf8", fontFamily:"'DM Sans',sans-serif", fontSize:"0.95rem", color:"#1a2e1a", outline:"none", boxSizing:"border-box", transition:"border-color 0.2s, box-shadow 0.2s" },
+  finputIcon:{ position:"absolute", left:"0.95rem", top:"50%", transform:"translateY(-50%)", fontSize:"1.05rem", opacity:0.45, pointerEvents:"none" },
+  passToggle:{ position:"absolute", right:"0.75rem", top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:"0.8rem", color:"#6b7a6b", fontFamily:"'DM Sans',sans-serif", padding:"0.25rem" },
+  loginBtn:(admin)=>({ width:"100%", padding:"1rem", marginTop:"0.5rem", background:admin?"linear-gradient(135deg,#c9a227,#9a7b0a)":"linear-gradient(135deg,#3a7d44,#1f4d24)", color:"white", border:"none", borderRadius:12, fontFamily:"'DM Sans',sans-serif", fontSize:"1rem", fontWeight:600, cursor:"pointer", boxShadow:admin?"0 8px 24px rgba(154,123,10,0.35)":"0 8px 24px rgba(58,125,68,0.35)", transition:"transform 0.15s, box-shadow 0.15s" }),
+  card:{ background:"#fefcf7", borderRadius:24, padding:"2.5rem", boxShadow:"0 20px 60px rgba(45,90,39,0.12)", border:"1px solid rgba(58,125,68,0.1)" },
+  // topbar
+  topbar:{ background:"#fefcf7", borderBottom:"1px solid rgba(58,125,68,0.12)", padding:"0 1.5rem", height:64, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100, boxShadow:"0 2px 12px rgba(45,90,39,0.12)" },
+  topBrand:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.35rem", color:"#2d5a27", display:"flex", alignItems:"center", gap:"0.5rem" },
+  topRight:{ display:"flex", alignItems:"center", gap:"1rem" },
+  ubadge:{ display:"flex", alignItems:"center", gap:"0.6rem", background:"#f0faf0", border:"1px solid rgba(58,125,68,0.15)", borderRadius:100, padding:"0.3rem 1rem 0.3rem 0.4rem" },
+  uavatar:(color)=>({ width:32, height:32, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"white", fontWeight:700, fontSize:"0.8rem", background:color||"linear-gradient(135deg,#3a7d44,#1a3d1a)", flexShrink:0 }),
+  uname:{ fontSize:"0.88rem", fontWeight:500, color:"#2d5a27" },
+  urole:(admin)=>({ fontSize:"0.7rem", fontWeight:600, padding:"2px 8px", borderRadius:100, textTransform:"uppercase", letterSpacing:"0.5px", background:admin?"#fff3cd":"#d4f0d4", color:admin?"#856404":"#2d5a27" }),
+  logoutBtn:{ background:"none", border:"1.5px solid rgba(58,125,68,0.2)", borderRadius:10, padding:"0.45rem 1rem", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"#6b7a6b", cursor:"pointer" },
+  // sidebar
+  sidebar:{ width:220, background:"#fefcf7", borderRight:"1px solid rgba(58,125,68,0.1)", padding:"1.25rem 0.75rem", flexShrink:0 },
+  slabel:{ fontSize:"0.68rem", fontWeight:700, textTransform:"uppercase", letterSpacing:"1.2px", color:"#b0bab0", margin:"1rem 0.5rem 0.4rem" },
+  nbtn:(active)=>({ display:"flex", alignItems:"center", gap:"0.7rem", width:"100%", padding:"0.65rem 0.8rem", border:"none", borderRadius:12, background:active?"#d4f0d4":"transparent", fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", color:active?"#2d5a27":"#5a6a5a", cursor:"pointer", textAlign:"left", fontWeight:active?600:400 }),
+  nbadge:{ marginLeft:"auto", background:"#3a7d44", color:"white", borderRadius:100, fontSize:"0.7rem", fontWeight:700, padding:"1px 7px" },
+  // content
+  content:{ flex:1, padding:"2rem", overflowY:"auto" },
+  pageTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.6rem", color:"#2d5a27", marginBottom:"1.5rem", display:"flex", alignItems:"center", justifyContent:"space-between" },
+  scard:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.75rem", boxShadow:"0 4px 20px rgba(45,90,39,0.12)", marginBottom:"1.5rem" },
+  scardTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.25rem", color:"#2d5a27", marginBottom:"1.25rem" },
+  // welcome
+  welcome:{ background:"linear-gradient(135deg,#3a7d44 0%,#2d5a27 60%,#1a3d1a 100%)", borderRadius:20, padding:"2rem 2.5rem", color:"white", marginBottom:"1.5rem" },
+  wh2:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.8rem", margin:"0 0 0.3rem" },
+  wp:{ opacity:0.85, fontSize:"0.9rem", margin:0 },
+  // stat grid
+  statGrid:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:"1rem", marginBottom:"1.5rem" },
+  statCard:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:16, padding:"1.25rem 1.5rem", boxShadow:"0 2px 12px rgba(45,90,39,0.12)" },
+  statLabel:{ fontSize:"0.75rem", color:"#8a9a8a", textTransform:"uppercase", letterSpacing:"0.8px", fontWeight:600 },
+  statValue:{ fontSize:"2rem", fontWeight:600, color:"#2d5a27", marginTop:"0.2rem", lineHeight:1 },
+  statSub:{ fontSize:"0.78rem", color:"#8a9a8a", marginTop:"0.25rem" },
+  // buttons
+  btn:(type)=>{
+    const base={ display:"inline-flex", alignItems:"center", gap:"0.4rem", padding:"0.55rem 1.1rem", borderRadius:10, fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:500, cursor:"pointer", border:"none" };
+    if(type==="primary") return {...base, background:"linear-gradient(135deg,#3a7d44,#2d5a27)", color:"white", boxShadow:"0 3px 12px rgba(58,125,68,0.3)"};
+    if(type==="outline") return {...base, background:"transparent", border:"1.5px solid rgba(58,125,68,0.25)", color:"#2d5a27"};
+    if(type==="danger")  return {...base, background:"#fee", border:"1.5px solid #fca5a5", color:"#dc2626"};
+    return base;
+  },
+  btnSm:{ padding:"0.3rem 0.75rem", fontSize:"0.78rem" },
+  // form
+  addForm:{ background:"#f0faf0", border:"1.5px dashed rgba(58,125,68,0.3)", borderRadius:16, padding:"1.5rem", marginBottom:"1.5rem" },
+  formRow:{ display:"grid", gap:"1rem", marginBottom:"1rem" },
+  inp:{ width:"100%", padding:"0.65rem 0.9rem", border:"1.5px solid rgba(58,125,68,0.15)", borderRadius:10, fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", background:"white", outline:"none", boxSizing:"border-box" },
+  // table
+  tblWrap:{ overflowX:"auto", borderRadius:14, border:"1px solid rgba(58,125,68,0.1)" },
+  th:{ padding:"0.85rem 1rem", fontSize:"0.75rem", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.8px", color:"#2d5a27", textAlign:"left", borderBottom:"1px solid rgba(58,125,68,0.1)", background:"#f0faf0" },
+  td:{ padding:"0.85rem 1rem", fontSize:"0.88rem", borderBottom:"1px solid rgba(58,125,68,0.06)", color:"#3a3a3a" },
+  // badge
+  badge:(type)=>{
+    const base={ display:"inline-block", padding:"3px 10px", borderRadius:100, fontSize:"0.73rem", fontWeight:600 };
+    if(type==="green")  return {...base, background:"#d4f0d4", color:"#2d5a27"};
+    if(type==="orange") return {...base, background:"#fff3cd", color:"#856404"};
+    if(type==="red")    return {...base, background:"#fee",    color:"#dc2626"};
+    if(type==="blue")   return {...base, background:"#e0f0ff", color:"#1a5fa8"};
+    return                     {...base, background:"#f0f0f0", color:"#6b7a6b"};
+  },
+  tpill:{ background:"#d4f0d4", color:"#2d5a27", borderRadius:100, padding:"3px 10px", fontSize:"0.82rem", fontWeight:600 },
+  // task card
+  tcard:(pri,done)=>({ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:`4px solid ${pri==="high"?"#dc2626":pri==="medium"?"#f59e0b":"#3a7d44"}`, borderRadius:16, padding:"1.25rem", boxShadow:"0 2px 10px rgba(45,90,39,0.12)", opacity:done?0.55:1 }),
+  // chat
+  chatLayout:{ display:"grid", gridTemplateColumns:"230px 1fr", gap:"1.5rem", height:"calc(100vh - 130px)" },
+  chatUsers:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.25rem", overflowY:"auto" },
+  chatUser:(active)=>({ display:"flex", alignItems:"center", gap:"0.7rem", padding:"0.7rem 0.75rem", borderRadius:12, cursor:"pointer", background:active?"#d4f0d4":"transparent", marginBottom:2 }),
+  chatMain:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.5rem", display:"flex", flexDirection:"column", overflow:"hidden" },
+  chatMsgs:{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.85rem", padding:"0.5rem 0", minHeight:0 },
+  mrow:(mine)=>({ display:"flex", alignItems:"flex-end", gap:"0.5rem", flexDirection:mine?"row-reverse":"row" }),
+  mbubble:(mine)=>({ maxWidth:"68%", padding:"0.65rem 0.95rem", borderRadius:16, fontSize:"0.88rem", lineHeight:1.5, background:mine?"linear-gradient(135deg,#3a7d44,#2d5a27)":"#f0faf0", color:mine?"white":"#2a2a2a", borderBottomRightRadius:mine?4:16, borderBottomLeftRadius:mine?16:4 }),
+  mtime:{ fontSize:"0.68rem", color:"#b0bab0", marginTop:2 },
+  cinputWrap:{ display:"flex", gap:"0.75rem", alignItems:"flex-end", borderTop:"1px solid rgba(58,125,68,0.1)", paddingTop:"1rem", marginTop:"0.75rem" },
+  cinput:{ flex:1, padding:"0.7rem 1rem", border:"1.5px solid rgba(58,125,68,0.15)", borderRadius:14, fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", resize:"none", outline:"none", background:"#f7f3ec", maxHeight:100, boxSizing:"border-box" },
+  sendBtn:{ width:44, height:44, borderRadius:12, background:"linear-gradient(135deg,#3a7d44,#2d5a27)", border:"none", color:"white", cursor:"pointer", fontSize:"1.1rem", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 },
+  // announcement
+  ann:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:"4px solid #3a7d44", borderRadius:14, padding:"1.25rem 1.5rem", marginBottom:"0.75rem" },
+  meeting:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:"4px solid #1a5fa8", borderRadius:14, padding:"1.25rem 1.5rem", marginBottom:"0.75rem" },
+  // modal
+  modalBg:{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" },
+  modal:{ background:"#fefcf7", borderRadius:20, padding:"2rem", width:"100%", maxWidth:480, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" },
+  // notif
+  notif:{ position:"fixed", bottom:"2rem", right:"2rem", background:"#2d5a27", color:"white", padding:"0.85rem 1.4rem", borderRadius:14, fontSize:"0.88rem", fontWeight:500, zIndex:9998, boxShadow:"0 8px 24px rgba(0,0,0,0.2)" },
+  empty:{ textAlign:"center", padding:"2.5rem 1rem", color:"#8a9a8a" },
+};
+
+// ── SMALL COMPONENTS ─────────────────────────────────
+function Avatar({initials, color, size=32}){
+  return <div style={{...S.uavatar(null), width:size, height:size, fontSize:size*0.28, background:`linear-gradient(135deg,${color},#1a3d1a)`}}>{initials}</div>;
+}
+
+function Badge({type, children}){
+  return <span style={S.badge(type)}>{children}</span>;
+}
+
+function Btn({type="primary", sm, onClick, children, style={}}){
+  return <button style={{...S.btn(type), ...(sm?S.btnSm:{}), ...style}} onClick={onClick}>{children}</button>;
+}
+
+function Inp({value, onChange, placeholder, type="text", id}){
+  return <input id={id} style={S.inp} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type} />;
+}
+
+function Sel({value, onChange, options}){
+  return <select style={S.inp} value={value} onChange={e=>onChange(e.target.value)}>
+    {options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+  </select>;
+}
+
+function Modal({open, onClose, title, children}){
+  if(!open) return null;
+  return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div style={S.modal}>
+      <div style={{fontFamily:"'DM Serif Display',serif", fontSize:"1.3rem", color:"#2d5a27", marginBottom:"1.25rem"}}>{title}</div>
+      {children}
+    </div>
+  </div>;
+}
+
+function Notif({msg}){
+  if(!msg) return null;
+  return <div style={S.notif}>{msg}</div>;
+}
+
+function LoginScreen({selRole,setSelRole,loginUser,setLoginUser,loginPass,setLoginPass,loginErr,setLoginErr,doLogin,users,fbOnline,fbReady}){
+  const [showPass,setShowPass]=useState(false);
+  const isAdm = selRole==="admin";
+  const roleUsers = Object.entries(users).filter(([,u])=>isAdm?u.role==="admin"&&u.active:u.role!=="admin"&&u.active);
+  return (
+    <div style={S.loginPage}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+      <div style={S.loginHero}>
+        <div style={{...S.loginHeroOrb(1),width:320,height:320,top:-80,right:-60}}/>
+        <div style={{...S.loginHeroOrb(2),width:200,height:200,bottom:40,left:-40}}/>
+        <div style={{fontSize:"3rem",marginBottom:"0.75rem",position:"relative",zIndex:1}}>🌿</div>
+        <h1 style={S.loginHeroTitle}>Zahradní systém</h1>
+        <p style={S.loginHeroText}>Vše běží na webu v cloudu – úpravy z domácího PC se automaticky zobrazí i na stránce na jiném počítači.</p>
+        <p style={{...S.loginHeroText,marginTop:"0.75rem",fontSize:"0.88rem",opacity:0.75}}>
+          {fbReady&&fbOnline?"✅ Cloud připojen – synchronizace aktivní":"⏳ Připojuji cloud…"}
+        </p>
+        <div style={S.loginHeroFeat}>
+          {["📋 Úkoly a plánování","💬 Interní zprávy","📅 Evidence docházky"].map(t=>(
+            <div key={t} style={S.loginHeroFeatItem}><span style={{width:8,height:8,borderRadius:"50%",background:"rgba(255,255,255,0.7)",flexShrink:0}}/>{t}</div>
+          ))}
+        </div>
+      </div>
+      <div style={S.loginPanel}>
+        <div style={S.loginFormWrap}>
+          <div style={S.loginFormHead}>
+            <h2 style={S.loginFormTitle}>{isAdm?"Přihlášení administrátora":"Přihlášení zaměstnance"}</h2>
+            <p style={S.loginFormSub}>Zadejte své přihlašovací údaje</p>
+          </div>
+          <div style={S.loginCard}>
+            <div style={S.roleTabs}>
+              <button type="button" style={S.rtab(selRole==="admin",true)} onClick={()=>{setSelRole("admin");setLoginErr("");}}>👑 Administrátor</button>
+              <button type="button" style={S.rtab(selRole==="employee",false)} onClick={()=>{setSelRole("employee");setLoginErr("");}}>🌱 Zaměstnanec</button>
+            </div>
+            {loginErr && <div style={S.err}>⚠️ {loginErr}</div>}
+            <div style={S.fgroup}>
+              <label style={S.flabel}>Uživatelské jméno</label>
+              <div style={S.finputWrap}>
+                <span style={S.finputIcon}>👤</span>
+                <input style={S.finput} list="user-suggest" value={loginUser} onChange={e=>setLoginUser(e.target.value)}
+                  placeholder={isAdm?"např. adam":"např. laura"} autoComplete="username"
+                  onKeyDown={e=>e.key==="Enter"&&doLogin()}
+                  onFocus={e=>{e.target.style.borderColor="#3a7d44";e.target.style.boxShadow="0 0 0 3px rgba(58,125,68,0.15)";}}
+                  onBlur={e=>{e.target.style.borderColor="#e2e8e0";e.target.style.boxShadow="none";}}/>
+                <datalist id="user-suggest">
+                  {roleUsers.map(([login])=><option key={login} value={login}/>)}
+                </datalist>
+              </div>
+            </div>
+            <div style={S.fgroup}>
+              <label style={S.flabel}>Heslo</label>
+              <div style={S.finputWrap}>
+                <span style={S.finputIcon}>🔒</span>
+                <input style={{...S.finput,paddingRight:"4.5rem"}} type={showPass?"text":"password"} value={loginPass}
+                  onChange={e=>setLoginPass(e.target.value)} placeholder="••••••••" autoComplete="current-password"
+                  onKeyDown={e=>e.key==="Enter"&&doLogin()}
+                  onFocus={e=>{e.target.style.borderColor="#3a7d44";e.target.style.boxShadow="0 0 0 3px rgba(58,125,68,0.15)";}}
+                  onBlur={e=>{e.target.style.borderColor="#e2e8e0";e.target.style.boxShadow="none";}}/>
+                <button type="button" style={S.passToggle} onClick={()=>setShowPass(s=>!s)}>{showPass?"Skrýt":"Zobrazit"}</button>
+              </div>
+            </div>
+            <button type="button" style={S.loginBtn(isAdm)} onClick={doLogin}
+              onMouseOver={e=>{e.currentTarget.style.transform="translateY(-1px)";}}
+              onMouseOut={e=>{e.currentTarget.style.transform="none";}}>
+              Přihlásit se →
+            </button>
+            <p style={{marginTop:"1.25rem",fontSize:"0.72rem",color:"#a0aea0",textAlign:"center",lineHeight:1.55}}>
+              Používejte stejnou webovou adresu na všech PC<br/>
+              (např. vase-domena.cz/index.html)
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ─────────────────────────────────────────
+function App(){
+  // auth
+  const [cu, setCu] = useState(null);
+  const [selRole, setSelRole] = useState("admin");
+  const [loginUser, setLoginUser] = useState("");
+  const [loginPass, setLoginPass] = useState("");
+  const [loginErr, setLoginErr] = useState("");
+  const [fbReady, setFbReady] = useState(false);
+  const [fbOnline, setFbOnline] = useState(!!window.db);
+  const [syncStatus, setSyncStatus] = useState(window.db?"loading":"offline");
+  const [lastSync, setLastSync] = useState("");
+  const [syncErr, setSyncErr] = useState("");
+
+  function onSyncEvent(st,msg){
+    if(st==="saving") setSyncStatus("saving");
+    else if(st==="saved"){ setSyncStatus("ok"); setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"})); setSyncErr(""); setFbOnline(true); }
+    else if(st==="error"){ setSyncStatus("error"); setSyncErr(msg||"Chyba"); setFbOnline(false); notify("⚠️ Nepodařilo se uložit do cloudu"); }
+  }
+
+  // data
+  const [users, setUsers] = useState(INIT_USERS);
+  const [passwords, setPasswords] = useState(INIT_PASSWORDS);
+  const [msgs, setMsgs] = useState(INIT_MESSAGES);
+  const [tasks, setTasks] = useState(INIT_TASKS);
+  const [attendance, setAttendance] = useState(INIT_ATTENDANCE);
+  const [announcements, setAnnouncements] = useState(INIT_ANNOUNCEMENTS);
+  const [meetings, setMeetings] = useState(INIT_MEETINGS);
+
+  // nav
+  const [page, setPage] = useState("dashboard");
+  const [selChat, setSelChat] = useState(null);
+  const [notif, setNotif] = useState("");
+  const notifRef = useRef();
+
+  // checkin
+  const [checkedIn, setCheckedIn] = useState(false);
+
+  /* Firebase – data v cloudu, stejná na všech PC a na webu */
+  useEffect(()=>{
+    if(!window.db){ setFbReady(true); setSyncStatus("offline"); return; }
+    const db=window.db;
+    const seeds=[
+      ["users",INIT_USERS],["passwords",INIT_PASSWORDS],["msgs",INIT_MESSAGES],
+      ["tasks",INIT_TASKS],["attendance",INIT_ATTENDANCE],
+      ["announcements",INIT_ANNOUNCEMENTS],["meetings",INIT_MEETINGS],
+    ];
+    const setters={users:setUsers,passwords:setPasswords,msgs:setMsgs,tasks:setTasks,
+      attendance:setAttendance,announcements:setAnnouncements,meetings:setMeetings};
+    let loaded=0;
+    const unsubs=seeds.map(([name,fallback])=>
+      db.collection("app").doc(name).onSnapshot(function(doc){
+        if(doc.exists){
+          let data=doc.data();
+          if(name==="attendance") data=normalizeAttendance(data,INIT_USERS);
+          if(name==="tasks") data=normalizeTasks(data);
+          if(name==="announcements"||name==="meetings") data=asArray(data);
+          setters[name](data);
+        }else{
+          window.cloudSave(name,fallback);
+        }
+        loaded++;
+        if(loaded>=seeds.length){
+          setFbReady(true); setFbOnline(true); setSyncStatus("ok");
+          setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
+        }
+      },function(err){
+        setFbOnline(false); setSyncStatus("error"); setSyncErr(err.message||"Bez připojení");
+      })
+    );
+    return function(){ unsubs.forEach(function(u){u();}); };
+  },[]);
+
+  const updateUsers=makeUpdater(setUsers,"users",onSyncEvent);
+  const updatePasswords=makeUpdater(setPasswords,"passwords",onSyncEvent);
+  const updateMsgs=makeUpdater(setMsgs,"msgs",onSyncEvent);
+  const updateTasks=makeUpdater(setTasks,"tasks",onSyncEvent);
+  const updateAttendance=makeUpdater(setAttendance,"attendance",onSyncEvent);
+  const updateAnnouncements=makeUpdater(setAnnouncements,"announcements",onSyncEvent);
+  const updateMeetings=makeUpdater(setMeetings,"meetings",onSyncEvent);
+
+  useEffect(()=>{
+    if(!canAccessAdmin(cu)&&page==="admin") setPage("dashboard");
+  },[cu,page]);
+
+  function goPage(id){
+    if(id==="admin"&&!canAccessAdmin(cu)) return;
+    setPage(id);
+  }
+
+  function notify(msg){
+    setNotif(msg);
+    clearTimeout(notifRef.current);
+    notifRef.current = setTimeout(()=>setNotif(""), 3000);
+  }
+
+  function doLogin(){
+    const u = loginUser.trim().toLowerCase();
+    const p = loginPass;
+    if(!u||!p){ setLoginErr("Vyplňte uživatelské jméno i heslo."); return; }
+    if(!passwords[u]||passwords[u]!==p){ setLoginErr("Nesprávné jméno nebo heslo."); return; }
+    const ud = users[u];
+    if(!ud||!ud.active){ setLoginErr("Tento účet je deaktivován."); return; }
+    if(selRole==="admin"&&ud.role!=="admin"){ setLoginErr("Tento účet nemá administrátorský přístup."); return; }
+    if(selRole==="employee"&&ud.role==="admin"){ setLoginErr("Administrátor se přihlašuje v záložce Administrátor."); return; }
+    setLoginErr("");
+    setCu({login:u,role:ud.role||"employee",...ud});
+    setPage("dashboard");
+  }
+
+  function doLogout(){
+    setCu(null); setSelChat(null); setCheckedIn(false);
+    setLoginUser(""); setLoginPass(""); setLoginErr("");
+  }
+
+  if(!cu) return (
+    <LoginScreen selRole={selRole} setSelRole={setSelRole} loginUser={loginUser} setLoginUser={setLoginUser}
+      loginPass={loginPass} setLoginPass={setLoginPass} loginErr={loginErr} setLoginErr={setLoginErr}
+      doLogin={doLogin} users={users} fbOnline={fbOnline} fbReady={fbReady}/>
+  );
+
+  if(!fbReady) return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",fontFamily:"'DM Sans',sans-serif",color:"#2d5a27",background:"#f7f3ec",padding:"2rem",textAlign:"center"}}>
+      <div style={{width:48,height:48,border:"3px solid rgba(58,125,68,0.2)",borderTopColor:"#3a7d44",borderRadius:"50%",animation:"spin 0.8s linear infinite",marginBottom:"1rem"}}/>
+      <div style={{fontSize:"1.1rem",fontWeight:600}}>Připojuji ke cloudu…</div>
+      <p style={{color:"#6b7a6b",marginTop:"0.5rem",maxWidth:360}}>Načítám data pro web i druhý počítač. Chvíli strpení.</p>
+    </div>
+  );
+
+  // ── CONTACTS ──
+  const contacts = Object.entries(users).filter(([k])=>k!==cu.login&&users[k].active).map(([login,u])=>({login,...u}));
+  function getUnread(){
+    return contacts.filter(c=>{
+      const key=chatKey(cu.login,c.login);
+      return (msgs[key]||[]).some(m=>m.from!==cu.login);
+    }).length;
+  }
+  const unread = getUnread();
+
+  // ── NAV ITEMS ──
+  const navItems = [
+    {id:"dashboard", icon:"🏡", label:"Přehled"},
+    {id:"messages",  icon:"💬", label:"Zprávy", badge:unread>0?unread:null},
+    {id:"tasks",     icon:"📋", label:"Úkoly"},
+    {id:"attendance",icon:"📅", label:"Docházka"},
+    {id:"announcements",icon:"📢",label:"Oznámení"},
+    {id:"meetings",  icon:"🤝", label:"Schůze"},
+    ...(canAccessAdmin(cu)?[{id:"admin",icon:"⚙️",label:"Admin panel",admin:true}]:[]),
+  ];
+
+  return (
+    <div style={S.app}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+      {/* TOPBAR */}
+      <div style={S.topbar}>
+        <div style={S.topBrand}>🌿 Zahradní systém</div>
+        <div style={S.topRight}>
+          <span style={{fontSize:"0.75rem",color:syncStatus==="error"||syncStatus==="offline"?"#b45309":syncStatus==="saving"?"#1a5fa8":"#2d5a27",background:syncStatus==="error"||syncStatus==="offline"?"#fff3cd":syncStatus==="saving"?"#e0f0ff":"#d4f0d4",padding:"4px 10px",borderRadius:100,fontWeight:600}} title={syncErr||"Data jsou v cloudu – vidíte je na webu i na jiném PC"}>
+            {syncStatus==="saving"?"⏳ Ukládám…":syncStatus==="error"?"⚠️ Chyba cloudu":syncStatus==="offline"?"📴 Jen lokálně":lastSync?"☁️ Web sync "+lastSync:"☁️ Připojeno"}
+          </span>
+          <div style={S.ubadge}>
+            <Avatar initials={cu.initials} color={cu.color} size={32}/>
+            <span style={S.uname}>{cu.name.split(" ")[0]}</span>
+            <span style={S.urole(cu.role==="admin")}>{cu.role==="admin"?"Administrátor":"Zaměstnanec"}</span>
+          </div>
+          <button style={S.logoutBtn} onClick={doLogout}>Odhlásit</button>
+        </div>
+      </div>
+      <div style={{display:"flex",flex:1}}>
+        {/* SIDEBAR */}
+        <div style={S.sidebar}>
+          <div style={S.slabel}>Hlavní</div>
+          {navItems.map(n=>(
+            <button key={n.id} style={S.nbtn(page===n.id)} onClick={()=>goPage(n.id)}>
+              <span style={{fontSize:"1.1rem"}}>{n.icon}</span>
+              {n.label}
+              {n.badge && <span style={S.nbadge}>{n.badge}</span>}
+            </button>
+          ))}
+        </div>
+        {/* CONTENT */}
+        <div style={S.content}>
+          {page==="dashboard"  && <Dashboard cu={cu} users={users} tasks={tasks} msgs={msgs} contacts={contacts} announcements={announcements} meetings={meetings} attendance={attendance} chatKey={chatKey}/>}
+          {page==="messages"   && <Messages cu={cu} users={users} msgs={msgs} setMsgs={updateMsgs} contacts={contacts} selChat={selChat} setSelChat={setSelChat} chatKey={chatKey} notify={notify}/>}
+          {page==="tasks"      && <Tasks cu={cu} users={users} tasks={tasks} setTasks={updateTasks} notify={notify}/>}
+          {page==="attendance" && <Attendance cu={cu} users={users} allAttendance={attendance} setAllAttendance={updateAttendance} checkedIn={checkedIn} setCheckedIn={setCheckedIn} notify={notify}/>}
+          {page==="announcements" && <Announcements cu={cu} announcements={announcements} setAnnouncements={updateAnnouncements} notify={notify}/>}
+          {page==="meetings"   && <Meetings cu={cu} meetings={meetings} setMeetings={updateMeetings} notify={notify}/>}
+          {page==="admin"      && canAccessAdmin(cu) && <Admin cu={cu} users={users} setUsers={updateUsers} allAttendance={attendance} setAllAttendance={updateAttendance} passwords={passwords} setPasswords={updatePasswords} tasks={tasks} setTasks={updateTasks} announcements={announcements} setAnnouncements={updateAnnouncements} meetings={meetings} setMeetings={updateMeetings} msgs={msgs} setMsgs={updateMsgs} notify={notify}/>}
+        </div>
+      </div>
+      <Notif msg={notif}/>
+    </div>
+  );
+}
+
+// ── DASHBOARD ─────────────────────────────────────────
+function Dashboard({cu,users,tasks,msgs,contacts,announcements,meetings,attendance,chatKey}){
+  const myTasks = asArray(tasks).filter(t=>!t.done&&(isAdmin(cu)||(t.who&&t.who.toLowerCase().includes(cu.name.split(" ")[0].toLowerCase()))));
+  const unread = contacts.filter(c=>(msgs[chatKey(cu.login,c.login)]||[]).some(m=>m.from!==cu.login)).length;
+  const stats = isAdmin(cu)
+    ? [{l:"Zaměstnanců",v:Object.values(users).filter(u=>u.role!=="admin"&&u.active).length,s:"aktivních"},{l:"Otevřených úkolů",v:asArray(tasks).filter(t=>!t.done).length,s:"celkem"},{l:"Nové zprávy",v:unread,s:"konverzací"},{l:"Schůze",v:meetings.length,s:"naplánováno"}]
+    : [{l:"Moje úkoly",v:myTasks.length,s:"čeká"},{l:"Nové zprávy",v:unread,s:"nepřečtených"},{l:"Oznámení",v:announcements.length,s:"celkem"}];
+  return (
+    <div>
+      <div style={S.welcome}>
+        <h2 style={S.wh2}>Dobrý den, {cu.name.split(" ")[0]}! 👋</h2>
+        <p style={S.wp}>Dnes je {todayLabel()} · Vaše směna: {cu.shift}</p>
+      </div>
+      <div style={S.statGrid}>
+        {stats.map(s=><div key={s.l} style={S.statCard}><div style={S.statLabel}>{s.l}</div><div style={S.statValue}>{s.v}</div><div style={S.statSub}>{s.s}</div></div>)}
+      </div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1.5rem"}}>
+        <div style={S.scard}>
+          <div style={S.scardTitle}>📋 Moje úkoly</div>
+          {myTasks.length===0 && <div style={S.empty}><div style={{fontSize:"2rem"}}>🎉</div>Žádné úkoly!</div>}
+          {myTasks.slice(0,5).map(t=>(
+            <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.55rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
+              <div style={{width:10,height:10,borderRadius:"50%",background:t.pri==="high"?"#dc2626":t.pri==="medium"?"#f59e0b":"#3a7d44",flexShrink:0}}/>
+              <div style={{flex:1,fontSize:"0.88rem"}}>{t.name}</div>
+              <div style={{fontSize:"0.75rem",color:"#8a9a8a"}}>{t.date}</div>
+            </div>
+          ))}
+        </div>
+        <div style={S.scard}>
+          <div style={S.scardTitle}>💬 Poslední zprávy</div>
+          {contacts.length===0 && <div style={S.empty}><div style={{fontSize:"2rem"}}>💬</div>Žádné zprávy</div>}
+          {contacts.map(c=>{
+            const key=chatKey(cu.login,c.login);
+            const last=(msgs[key]||[]).slice(-1)[0];
+            if(!last) return null;
+            return <div key={c.login} style={{display:"flex",alignItems:"center",gap:"0.7rem",padding:"0.55rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
+              <Avatar initials={c.initials} color={c.color} size={30}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:"0.85rem",fontWeight:500}}>{c.name.split(" ")[0]}</div>
+                <div style={{fontSize:"0.75rem",color:"#8a9a8a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{last.text}</div>
+              </div>
+              <div style={{fontSize:"0.7rem",color:"#b0bab0",flexShrink:0}}>{last.time}</div>
+            </div>;
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MESSAGES ─────────────────────────────────────────
+function Messages({cu,users,msgs,setMsgs,contacts,selChat,setSelChat,chatKey,notify}){
+  const [text,setText]=useState("");
+  const msgsEndRef=useRef();
+  useEffect(()=>{ msgsEndRef.current?.scrollIntoView({behavior:"smooth"}); },[selChat,msgs]);
+  const key = selChat?chatKey(cu.login,selChat):null;
+  const thread = key?(msgs[key]||[]):[];
+  function send(){
+    if(!text.trim()||!selChat) return;
+    const k=chatKey(cu.login,selChat);
+    setMsgs(prev=>({...prev,[k]:[...(prev[k]||[]),{from:cu.login,text:text.trim(),time:nowTime()}]}));
+    setText("");
+  }
+  return (
+    <div style={S.chatLayout}>
+      <div style={S.chatUsers}>
+        <div style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.1rem",color:"#2d5a27",marginBottom:"1rem"}}>💬 Konverzace</div>
+        {contacts.map(c=>{
+          const k=chatKey(cu.login,c.login);
+          const last=(msgs[k]||[]).slice(-1)[0];
+          return <div key={c.login} style={S.chatUser(selChat===c.login)} onClick={()=>setSelChat(c.login)}>
+            <Avatar initials={c.initials} color={c.color} size={36}/>
+            <div>
+              <div style={{fontWeight:500,fontSize:"0.88rem",color:"#2d5a27"}}>{c.name.split(" ")[0]}</div>
+              <div style={{fontSize:"0.75rem",color:"#8a9a8a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:130}}>{last?last.text:"Žádné zprávy"}</div>
+            </div>
+          </div>;
+        })}
+      </div>
+      <div style={S.chatMain}>
+        <div style={{paddingBottom:"1rem",borderBottom:"1px solid rgba(58,125,68,0.1)",marginBottom:"0.5rem"}}>
+          <div style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.1rem",color:"#2d5a27"}}>{selChat?users[selChat]?.name:"Vyberte konverzaci"}</div>
+          {selChat&&<div style={{fontSize:"0.78rem",color:"#8a9a8a"}}>{users[selChat]?.pos}</div>}
+        </div>
+        <div style={S.chatMsgs}>
+          {!selChat && <div style={S.empty}><div style={{fontSize:"2rem"}}>💬</div>Vyberte kontakt a začněte psát.</div>}
+          {thread.map((m,i)=>{
+            const mine=m.from===cu.login;
+            const s=users[m.from];
+            return <div key={i}>
+              {!mine&&<div style={{fontSize:"0.7rem",color:"#8a9a8a",padding:"0 0.4rem",marginBottom:2}}>{s?.name.split(" ")[0]}</div>}
+              <div style={S.mrow(mine)}>
+                <Avatar initials={s?.initials||"?"} color={s?.color||"#3a7d44"} size={28}/>
+                <div>
+                  <div style={S.mbubble(mine)}>{m.text}</div>
+                  <div style={{...S.mtime,textAlign:mine?"right":"left"}}>{m.time}</div>
+                </div>
+              </div>
+            </div>;
+          })}
+          <div ref={msgsEndRef}/>
+        </div>
+        <div style={S.cinputWrap}>
+          <textarea style={S.cinput} value={text} onChange={e=>setText(e.target.value)} placeholder="Napište zprávu…" rows={1}
+            onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}/>
+          <button style={S.sendBtn} onClick={send}>➤</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── TASKS ─────────────────────────────────────────────
+function TaskAddForm({users,tasks,setTasks,notify,title}){
+  const [name,setName]=useState("");
+  const [whoLogin,setWhoLogin]=useState("");
+  const [pri,setPri]=useState("medium");
+  const [date,setDate]=useState(nowDate());
+  const [desc,setDesc]=useState("");
+  const empOpts=Object.entries(users).filter(([,u])=>u.role!=="admin"&&u.active).map(([login,u])=>({v:login,l:u.name}));
+  function add(){
+    if(!name.trim()){notify("Zadejte název úkolu");return;}
+    if(!whoLogin){notify("Vyberte zaměstnance");return;}
+    const assignee=users[whoLogin].name.split(" ")[0];
+    setTasks(prev=>[...asArray(prev),{id:Date.now(),name,who:assignee,pri,date,done:false,desc}]);
+    setName("");setWhoLogin("");setDesc("");setPri("medium");setDate(nowDate());
+    notify("✅ Úkol přidán zaměstnanci "+assignee);
+  }
+  return (
+    <div style={S.addForm}>
+      <div style={{fontWeight:600,fontSize:"1rem",color:"#2d5a27",marginBottom:"1rem"}}>{title||"➕ Nový úkol pro zaměstnance"}</div>
+      <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={name} onChange={setName} placeholder="Název úkolu *"/></div>
+      <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}>
+        <div><label style={S.flabel}>Zaměstnanec *</label><Sel value={whoLogin} onChange={setWhoLogin} options={[{v:"",l:"— vyberte —"},...empOpts]}/></div>
+        <div><label style={S.flabel}>Priorita</label><Sel value={pri} onChange={setPri} options={[{v:"high",l:"🔴 Vysoká"},{v:"medium",l:"🟡 Střední"},{v:"low",l:"🟢 Nízká"}]}/></div>
+      </div>
+      <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><div><label style={S.flabel}>Termín</label><input style={S.inp} type="date" value={date} onChange={e=>setDate(e.target.value)}/></div><div><label style={S.flabel}>Popis</label><Inp value={desc} onChange={setDesc} placeholder="volitelně"/></div></div>
+      <Btn onClick={add}>✅ Přidat úkol</Btn>
+    </div>
+  );
+}
+
+function Tasks({cu,users,tasks,setTasks,notify}){
+  const adm=isAdmin(cu);
+  const taskList=asArray(tasks);
+  const list = adm?taskList:taskList.filter(t=>t.who&&t.who.toLowerCase().includes(cu.name.split(" ")[0].toLowerCase()));
+  return (
+    <div>
+      <div style={S.pageTitle}>📋 Úkoly</div>
+      {adm&&<TaskAddForm users={users} tasks={tasks} setTasks={setTasks} notify={notify} title="➕ Přidat úkol zaměstnanci (admin)"/>}
+      {list.length===0&&<div style={S.empty}><div style={{fontSize:"2rem"}}>📋</div>Žádné úkoly</div>}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(270px,1fr))",gap:"1rem"}}>
+        {list.map(t=>(
+          <div key={t.id} style={S.tcard(t.pri,t.done)}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",gap:"0.5rem",marginBottom:"0.5rem"}}>
+              <div style={{fontWeight:600,fontSize:"0.92rem",textDecoration:t.done?"line-through":"none"}}>{t.name}</div>
+              {isAdmin(cu)&&<Btn type="danger" sm onClick={()=>{setTasks(p=>p.filter(x=>x.id!==t.id));notify("🗑️ Smazáno");}}>✕</Btn>}
+            </div>
+            {t.desc&&<div style={{fontSize:"0.8rem",color:"#8a9a8a",marginBottom:"0.5rem"}}>{t.desc}</div>}
+            <div style={{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.75rem"}}>
+              <Badge type={t.pri==="high"?"red":t.pri==="medium"?"orange":"green"}>{t.pri==="high"?"Vysoká":t.pri==="medium"?"Střední":"Nízká"}</Badge>
+              <Badge type="blue">👤 {t.who}</Badge>
+              <Badge>📅 {t.date}</Badge>
+            </div>
+            <label style={{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.83rem",cursor:"pointer",color:"#5a6a5a"}}>
+              <input type="checkbox" checked={t.done} onChange={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,done:!x.done}:x))}/> Hotovo
+            </label>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── ATTENDANCE ────────────────────────────────────────
+function AttendanceAddForm({users,allAttendance,setAllAttendance,notify,defaultLogin}){
+  const [whoLogin,setWhoLogin]=useState(defaultLogin||"");
+  const [nDate,setNDate]=useState(nowDate());
+  const [nIn,setNIn]=useState("");
+  const [nOut,setNOut]=useState("");
+  const [nSt,setNSt]=useState("ok");
+  const stOpts=[{v:"ok",l:"Přítomen"},{v:"late",l:"Pozdní příchod"},{v:"absence",l:"Absence"}];
+  const empOpts=Object.entries(users).filter(([,u])=>u.role!=="admin"&&u.active).map(([login,u])=>({v:login,l:u.name}));
+  function add(){
+    if(!whoLogin){notify("Vyberte zaměstnance");return;}
+    if(!nDate){notify("Zadejte datum");return;}
+    setAllAttendance(prev=>{
+      const list=getUserRecords(prev,whoLogin);
+      const next=[...list,{date:nDate,in:nIn,out:nOut,status:nSt}].sort((a,b)=>b.date.localeCompare(a.date));
+      return setUserRecords(prev,whoLogin,next);
+    });
+    setNIn("");setNOut("");setNSt("ok");setNDate(nowDate());
+    notify("✅ Docházka zapsána pro "+(users[whoLogin]?.name||whoLogin));
+  }
+  return (
+    <div style={S.addForm}>
+      <div style={{fontWeight:600,fontSize:"1rem",color:"#2d5a27",marginBottom:"1rem"}}>➕ Zapsat docházku zaměstnanci</div>
+      <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><label style={S.flabel}>Zaměstnanec *</label><Sel value={whoLogin} onChange={setWhoLogin} options={[{v:"",l:"— vyberte —"},...empOpts]}/></div>
+      <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr 1fr"}}>
+        <div><label style={S.flabel}>Datum *</label><input style={S.inp} type="date" value={nDate} onChange={e=>setNDate(e.target.value)}/></div>
+        <div><label style={S.flabel}>Příchod</label><input style={S.inp} type="time" value={nIn} onChange={e=>setNIn(e.target.value)}/></div>
+        <div><label style={S.flabel}>Odchod</label><input style={S.inp} type="time" value={nOut} onChange={e=>setNOut(e.target.value)}/></div>
+      </div>
+      <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><label style={S.flabel}>Stav</label><Sel value={nSt} onChange={setNSt} options={stOpts}/></div>
+      <Btn onClick={add}>✅ Uložit docházku</Btn>
+    </div>
+  );
+}
+
+function Attendance({cu,users,allAttendance,setAllAttendance,checkedIn,setCheckedIn,notify}){
+  const adm=isAdmin(cu);
+  const firstEmp=Object.keys(users).find(k=>users[k].role!=="admin"&&users[k].active)||cu.login;
+  const [viewLogin,setViewLogin]=useState(adm?firstEmp:cu.login);
+  const [editModal,setEditModal]=useState(false);
+  const [addModal,setAddModal]=useState(false);
+  const [editIdx,setEditIdx]=useState(null);
+  const [eDate,setEDate]=useState(""); const [eIn,setEIn]=useState(""); const [eOut,setEOut]=useState(""); const [eSt,setESt]=useState("ok");
+  const [nDate,setNDate]=useState(nowDate()); const [nIn,setNIn]=useState(""); const [nOut,setNOut]=useState(""); const [nSt,setNSt]=useState("ok");
+  const stOpts=[{v:"ok",l:"Přítomen"},{v:"late",l:"Pozdní příchod"},{v:"absence",l:"Absence"}];
+  const empOpts=Object.entries(users).filter(([,u])=>u.role!=="admin"&&u.active).map(([login,u])=>({v:login,l:u.name}));
+  const viewUser=users[viewLogin]||cu;
+  const records=getUserRecords(allAttendance,viewLogin);
+  const isOwn=viewLogin===cu.login;
+
+  useEffect(()=>{ if(!adm) setViewLogin(cu.login); },[cu.login,adm]);
+
+  function patchRecords(fn){
+    setAllAttendance(prev=>setUserRecords(prev,viewLogin,fn(getUserRecords(prev,viewLogin))));
+  }
+
+  function openEdit(i){setEditIdx(i);const a=records[i];setEDate(a.date);setEIn(a.in||"");setEOut(a.out||"");setESt(a.status);setEditModal(true);}
+  function saveEdit(){
+    patchRecords(list=>{const n=[...list];n[editIdx]={date:eDate,in:eIn,out:eOut,status:eSt};return n.sort((a,b)=>b.date.localeCompare(a.date));});
+    setEditModal(false);notify("✅ Docházka uložena · synchronizováno");
+  }
+  function delRow(){patchRecords(list=>list.filter((_,i)=>i!==editIdx));setEditModal(false);notify("🗑️ Smazáno");}
+  function addRow(){
+    if(!nDate){notify("Zadejte datum");return;}
+    patchRecords(list=>[...list,{date:nDate,in:nIn,out:nOut,status:nSt}].sort((a,b)=>b.date.localeCompare(a.date)));
+    setAddModal(false);notify("✅ Záznam přidán · synchronizováno");
+  }
+
+  return (
+    <div>
+      <div style={S.pageTitle}>📅 Docházka
+        <div style={{display:"flex",gap:"0.75rem",flexWrap:"wrap"}}>
+          {isOwn&&!adm&&<>
+            {!checkedIn&&<Btn type="outline" onClick={()=>{const t=nowTime(),d=nowDate();patchRecords(list=>[{date:d,in:t,out:"",status:"ok"},...list]);setCheckedIn(true);notify(`✅ Příchod v ${t}`);}}>✅ Příchod</Btn>}
+            {checkedIn&&<Btn type="outline" onClick={()=>{const t=nowTime();patchRecords(list=>list.map((a,i)=>i===0?{...a,out:t}:a));setCheckedIn(false);notify(`🏠 Odchod v ${t}`);}}>🏠 Odchod</Btn>}
+          </>}
+          {adm&&<Btn onClick={()=>setAddModal(true)}>✏️ Upravit v okně</Btn>}
+        </div>
+      </div>
+      {adm&&<AttendanceAddForm users={users} allAttendance={allAttendance} setAllAttendance={setAllAttendance} notify={notify} defaultLogin={viewLogin}/>}
+      {adm&&<div style={{...S.scard,marginBottom:"1.25rem"}}>
+        <div style={S.scardTitle}>👤 Prohlížet záznamy zaměstnance</div>
+        <Sel value={viewLogin} onChange={setViewLogin} options={empOpts.length?empOpts:[{v:cu.login,l:cu.name}]}/>
+      </div>}
+      <div style={{...S.scard,marginBottom:"1.5rem"}}>
+        <div style={{display:"flex",gap:"1.5rem",alignItems:"center"}}>
+          <Avatar initials={viewUser.initials} color={viewUser.color} size={52}/>
+          <div>
+            <div style={{fontWeight:600,fontSize:"1.05rem"}}>{viewUser.name}{adm&&!isOwn?" (evidence admina)":""}</div>
+            <div style={{color:"#8a9a8a",fontSize:"0.82rem"}}>{viewUser.pos}</div>
+            <span style={{...S.tpill,marginTop:"0.3rem",display:"inline-block"}}>{viewUser.shift}</span>
+          </div>
+        </div>
+      </div>
+      <div style={S.scard}>
+        <div style={S.scardTitle}>Záznamy ({records.length})</div>
+        {records.length===0&&<div style={S.empty}>Žádné záznamy · admin může přidat tlačítkem výše</div>}
+        <div style={S.tblWrap}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr>
+              <th style={S.th}>Datum</th><th style={S.th}>Příchod</th><th style={S.th}>Odchod</th><th style={S.th}>Odpracováno</th><th style={S.th}>Stav</th>
+              {adm&&<th style={S.th}>Akce</th>}
+            </tr></thead>
+            <tbody>
+              {records.map((a,i)=>(
+                <tr key={i}>
+                  <td style={S.td}>{a.date}</td>
+                  <td style={S.td}>{a.in?<span style={S.tpill}>{a.in}</span>:"—"}</td>
+                  <td style={S.td}>{a.out?<span style={S.tpill}>{a.out}</span>:"—"}</td>
+                  <td style={S.td}><strong>{calcHours(a.in,a.out)}</strong></td>
+                  <td style={S.td}><Badge type={a.status==="ok"?"green":a.status==="late"?"orange":"red"}>{a.status==="ok"?"Přítomen":a.status==="late"?"Pozdní":"Absence"}</Badge></td>
+                  {adm&&<td style={S.td}><Btn type="outline" sm onClick={()=>openEdit(i)}>✏️</Btn></td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <Modal open={editModal} onClose={()=>setEditModal(false)} title={"✏️ Upravit · "+viewUser.name.split(" ")[0]}>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><input style={S.inp} type="date" value={eDate} onChange={e=>setEDate(e.target.value)}/><Sel value={eSt} onChange={setESt} options={stOpts}/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><input style={S.inp} type="time" value={eIn} onChange={e=>setEIn(e.target.value)}/><input style={S.inp} type="time" value={eOut} onChange={e=>setEOut(e.target.value)}/></div>
+        <div style={{display:"flex",gap:"0.75rem",marginTop:"1rem"}}><Btn onClick={saveEdit}>Uložit</Btn><Btn type="danger" onClick={delRow}>Smazat</Btn><Btn type="outline" onClick={()=>setEditModal(false)}>Zrušit</Btn></div>
+      </Modal>
+      <Modal open={addModal} onClose={()=>setAddModal(false)} title={"➕ Zapsat docházku · "+viewUser.name.split(" ")[0]}>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><input style={S.inp} type="date" value={nDate} onChange={e=>setNDate(e.target.value)}/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><input style={S.inp} type="time" value={nIn} onChange={e=>setNIn(e.target.value)}/><input style={S.inp} type="time" value={nOut} onChange={e=>setNOut(e.target.value)}/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Sel value={nSt} onChange={setNSt} options={stOpts}/></div>
+        <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}><Btn onClick={addRow}>Uložit záznam</Btn><Btn type="outline" onClick={()=>setAddModal(false)}>Zrušit</Btn></div>
+      </Modal>
+    </div>
+  );
+}
+
+// ── ANNOUNCEMENTS ─────────────────────────────────────
+function Announcements({cu,announcements,setAnnouncements,notify}){
+  const [show,setShow]=useState(false);
+  const [title,setTitle]=useState(""); const [text,setText]=useState("");
+  function add(){
+    if(!title.trim()||!text.trim()){notify("Vyplňte nadpis i text");return;}
+    const now=new Date();
+    setAnnouncements(p=>[{id:Date.now(),author:cu.name,title,text,time:now.toLocaleDateString("cs-CZ")+" "+now.toTimeString().slice(0,5)},...p]);
+    setTitle("");setText("");setShow(false);notify("📢 Oznámení zveřejněno");
+  }
+  return (
+    <div>
+      <div style={S.pageTitle}>📢 Oznámení
+        {isAdmin(cu)&&<Btn onClick={()=>setShow(s=>!s)}>+ Přidat oznámení</Btn>}
+      </div>
+      {show&&<div style={S.addForm}>
+        <div style={{fontWeight:600,marginBottom:"1rem",color:"#2d5a27"}}>Nové oznámení</div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={title} onChange={setTitle} placeholder="Nadpis"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><textarea style={S.inp} value={text} onChange={e=>setText(e.target.value)} rows={3} placeholder="Text oznámení…"/></div>
+        <div style={{display:"flex",gap:"0.5rem"}}><Btn onClick={add}>Zveřejnit</Btn><Btn type="outline" onClick={()=>setShow(false)}>Zrušit</Btn></div>
+      </div>}
+      {announcements.length===0&&<div style={S.empty}><div style={{fontSize:"2rem"}}>📢</div>Žádná oznámení</div>}
+      {announcements.map(a=>(
+        <div key={a.id} style={S.ann}>
+          <div style={{fontSize:"0.75rem",color:"#8a9a8a",marginBottom:"0.35rem",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+            📢 {a.author} · {a.time}
+            {isAdmin(cu)&&<Btn type="danger" sm onClick={()=>{setAnnouncements(p=>p.filter(x=>x.id!==a.id));notify("🗑️ Smazáno");}}>✕</Btn>}
+          </div>
+          <div style={{fontWeight:600,fontSize:"0.98rem",color:"#2d5a27",marginBottom:"0.35rem"}}>{a.title}</div>
+          <div style={{fontSize:"0.9rem",lineHeight:1.6}}>{a.text}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── MEETINGS ──────────────────────────────────────────
+function Meetings({cu,meetings,setMeetings,notify}){
+  const [show,setShow]=useState(false);
+  const [title,setTitle]=useState(""); const [date,setDate]=useState(nowDate());
+  const [time,setTime]=useState(""); const [place,setPlace]=useState("");
+  const [desc,setDesc]=useState(""); const [att,setAtt]=useState("Všichni");
+  function add(){
+    if(!title.trim()||!date){notify("Zadejte název a datum");return;}
+    setMeetings(p=>[...p,{id:Date.now(),title,date,time,place,desc,attendees:att}].sort((a,b)=>a.date.localeCompare(b.date)));
+    setTitle("");setTime("");setPlace("");setDesc("");setAtt("Všichni");setShow(false);notify("🤝 Schůze přidána");
+  }
+  return (
+    <div>
+      <div style={S.pageTitle}>🤝 Schůze & Akce
+        {isAdmin(cu)&&<Btn onClick={()=>setShow(s=>!s)}>+ Přidat schůzi</Btn>}
+      </div>
+      {show&&<div style={S.addForm}>
+        <div style={{fontWeight:600,marginBottom:"1rem",color:"#2d5a27"}}>Nová schůze / akce</div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={title} onChange={setTitle} placeholder="Název schůze"/><input style={S.inp} type="date" value={date} onChange={e=>setDate(e.target.value)}/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><input style={S.inp} type="time" value={time} onChange={e=>setTime(e.target.value)}/><Inp value={place} onChange={setPlace} placeholder="Místo konání"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><textarea style={S.inp} value={desc} onChange={e=>setDesc(e.target.value)} rows={2} placeholder="Popis / program…"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={att} onChange={setAtt} placeholder="Účastníci"/></div>
+        <div style={{display:"flex",gap:"0.5rem"}}><Btn onClick={add}>Přidat</Btn><Btn type="outline" onClick={()=>setShow(false)}>Zrušit</Btn></div>
+      </div>}
+      {meetings.length===0&&<div style={S.empty}><div style={{fontSize:"2rem"}}>🤝</div>Žádné schůze</div>}
+      {meetings.map(m=>(
+        <div key={m.id} style={S.meeting}>
+          <div style={{fontSize:"0.75rem",color:"#8a9a8a",marginBottom:"0.35rem",display:"flex",alignItems:"center",gap:"0.75rem"}}>
+            📅 {m.date} · ⏰ {m.time||"—"} · 📍 {m.place||"—"}
+            {isAdmin(cu)&&<Btn type="danger" sm onClick={()=>{setMeetings(p=>p.filter(x=>x.id!==m.id));notify("🗑️ Smazáno");}}>✕</Btn>}
+          </div>
+          <div style={{fontWeight:600,fontSize:"0.98rem",color:"#1a5fa8",marginBottom:"0.35rem"}}>{m.title}</div>
+          {m.desc&&<div style={{fontSize:"0.88rem",lineHeight:1.55,marginBottom:"0.35rem"}}>{m.desc}</div>}
+          <div style={{fontSize:"0.8rem",color:"#8a9a8a"}}>👥 {m.attendees}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── ADMIN ─────────────────────────────────────────────
+function Admin({cu,users,setUsers,allAttendance,setAllAttendance,passwords,setPasswords,tasks,setTasks,announcements,setAnnouncements,meetings,setMeetings,msgs,setMsgs,notify}){
+  if(!canAccessAdmin(cu)) return <div style={S.empty}>⛔ Přístup odepřen – pouze administrátor.</div>;
+  const [addModal,setAddModal]=useState(false);
+  const [editModal,setEditModal]=useState(false);
+  const [editLogin,setEditLogin]=useState("");
+  const [nName,setNName]=useState(""); const [nLogin,setNLogin]=useState(""); const [nPass,setNPass]=useState(""); const [nPos,setNPos]=useState(""); const [nShift,setNShift]=useState("");
+  const [eName,setEName]=useState(""); const [ePos,setEPos]=useState(""); const [eShift,setEShift]=useState(""); const [ePass,setEPass]=useState("");
+  const [bc,setBc]=useState("");
+  const emps = Object.entries(users).filter(([,u])=>u.role!=="admin");
+  const colors=["#3a7d44","#1a5fa8","#993556","#7a3d9a","#c0551a"];
+
+  function addUser(){
+    if(!nName.trim()||!nLogin.trim()||!nPass){notify("Vyplňte jméno, login a heslo");return;}
+    if(users[nLogin]){notify("Tento login již existuje");return;}
+    const parts=nName.split(" "); const initials=(parts[0][0]+(parts[1]?parts[1][0]:"")).toUpperCase();
+    const color=colors[Object.keys(users).length%colors.length];
+    setUsers(p=>({...p,[nLogin]:{name:nName,role:"employee",initials,pos:nPos||"Zahradník",shift:nShift||"8:00–16:00",color,active:true}}));
+    setPasswords(p=>({...p,[nLogin]:nPass}));
+    setAllAttendance(p=>({...p,[nLogin]:[]}));
+    setNName("");setNLogin("");setNPass("");setNPos("");setNShift("");setAddModal(false);
+    notify(`✅ Zaměstnanec ${nName} přidán`);
+  }
+  function openEdit(login){
+    const u=users[login];setEditLogin(login);setEName(u.name);setEPos(u.pos);setEShift(u.shift);setEPass("");setEditModal(true);
+  }
+  function saveEdit(){
+    if(!eName.trim()){notify("Zadejte jméno");return;}
+    const parts=eName.split(" "); const initials=(parts[0][0]+(parts[1]?parts[1][0]:"")).toUpperCase();
+    setUsers(p=>({...p,[editLogin]:{...p[editLogin],name:eName,initials,pos:ePos||p[editLogin].pos,shift:eShift||p[editLogin].shift}}));
+    if(ePass) setPasswords(p=>({...p,[editLogin]:ePass}));
+    setEditModal(false);notify("✅ Zaměstnanec upraven");
+  }
+  function toggleActive(login){
+    setUsers(p=>({...p,[login]:{...p[login],active:!p[login].active}}));
+    notify(users[login].active?"🚫 Zaměstnanec deaktivován":"✅ Účet aktivován");
+  }
+  function broadcastMsg(){
+    if(!bc.trim()){notify("Napište zprávu");return;}
+    const t=nowTime();
+    const upd={...msgs};
+    Object.keys(users).filter(k=>users[k].role!=="admin"&&users[k].active).forEach(k=>{
+      const key=chatKey(cu.login,k);
+      if(!upd[key])upd[key]=[];
+      upd[key]=[...upd[key],{from:cu.login,text:`📡 ${bc}`,time:t}];
+    });
+    setMsgs(upd);setBc("");notify("📡 Zpráva odeslána všem");
+  }
+
+  return (
+    <div>
+      <div style={S.pageTitle}>⚙️ Admin panel</div>
+      <div style={S.scard}>
+        <div style={S.scardTitle}>👥 Správa zaměstnanců</div>
+        <div style={{marginBottom:"1rem"}}><Btn onClick={()=>setAddModal(true)}>+ Přidat zaměstnance</Btn></div>
+        <div style={S.tblWrap}>
+          <table style={{width:"100%",borderCollapse:"collapse"}}>
+            <thead><tr><th style={S.th}>Jméno</th><th style={S.th}>Pozice</th><th style={S.th}>Směna</th><th style={S.th}>Stav</th><th style={S.th}>Akce</th></tr></thead>
+            <tbody>
+              {emps.map(([login,u])=>(
+                <tr key={login}>
+                  <td style={S.td}><div style={{display:"flex",alignItems:"center",gap:"0.6rem"}}><Avatar initials={u.initials} color={u.color} size={28}/>{u.name}</div></td>
+                  <td style={S.td}><span style={{fontSize:"0.82rem",color:"#8a9a8a"}}>{u.pos}</span></td>
+                  <td style={S.td}><span style={S.tpill}>{u.shift}</span></td>
+                  <td style={S.td}><Badge type={u.active?"green":"red"}>{u.active?"Aktivní":"Deaktivován"}</Badge></td>
+                  <td style={{...S.td,display:"flex",gap:"0.4rem",flexWrap:"wrap"}}>
+                    <Btn type="outline" sm onClick={()=>openEdit(login)}>✏️ Upravit</Btn>
+                    <Btn type="danger" sm onClick={()=>toggleActive(login)}>{u.active?"🚫 Vyhodit":"✅ Aktivovat"}</Btn>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div style={S.scard}>
+        <TaskAddForm users={users} tasks={tasks} setTasks={setTasks} notify={notify} title="📋 Přidat úkol (admin panel)"/>
+      </div>
+      <div style={S.scard}>
+        <AttendanceAddForm users={users} allAttendance={allAttendance} setAllAttendance={setAllAttendance} notify={notify}/>
+      </div>
+      <div style={S.scard}>
+        <div style={S.scardTitle}>📡 Zpráva všem zaměstnancům</div>
+        <textarea style={{...S.inp,marginBottom:"1rem",resize:"vertical"}} value={bc} onChange={e=>setBc(e.target.value)} rows={3} placeholder="Napište zprávu pro všechny zaměstnance…"/>
+        <Btn onClick={broadcastMsg}>📡 Odeslat všem</Btn>
+      </div>
+      <div style={S.scard}>
+        <div style={S.scardTitle}>📋 Seznam úkolů</div>
+        {asArray(tasks).length===0&&<div style={S.empty}>Žádné úkoly</div>}
+        {asArray(tasks).map(t=>(
+          <div key={t.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
+            <div style={{flex:1,fontSize:"0.88rem",textDecoration:t.done?"line-through":"none"}}>{t.name} <span style={{color:"#8a9a8a"}}>({t.who})</span></div>
+            <Btn type="outline" sm onClick={()=>setTasks(p=>p.map(x=>x.id===t.id?{...x,done:!x.done}:x))}>{t.done?"↩":"✓"}</Btn>
+            <Btn type="danger" sm onClick={()=>{setTasks(p=>p.filter(x=>x.id!==t.id));notify("🗑️ Úkol smazán");}}>✕</Btn>
+          </div>
+        ))}
+      </div>
+      <div style={S.scard}>
+        <div style={S.scardTitle}>📢 Správa oznámení</div>
+        {announcements.map(a=>(
+          <div key={a.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
+            <div style={{flex:1,fontSize:"0.88rem"}}><strong>{a.title}</strong></div>
+            <Btn type="danger" sm onClick={()=>{setAnnouncements(p=>p.filter(x=>x.id!==a.id));notify("🗑️ Smazáno");}}>✕</Btn>
+          </div>
+        ))}
+      </div>
+      <div style={S.scard}>
+        <div style={S.scardTitle}>🤝 Správa schůzí</div>
+        {meetings.map(m=>(
+          <div key={m.id} style={{display:"flex",alignItems:"center",gap:"0.75rem",padding:"0.6rem 0",borderBottom:"1px solid rgba(58,125,68,0.08)"}}>
+            <div style={{flex:1,fontSize:"0.88rem"}}><strong>{m.title}</strong> <span style={{color:"#8a9a8a"}}>{m.date}</span></div>
+            <Btn type="danger" sm onClick={()=>{setMeetings(p=>p.filter(x=>x.id!==m.id));notify("🗑️ Smazáno");}}>✕</Btn>
+          </div>
+        ))}
+      </div>
+      <div style={S.scard}>
+        <div style={S.scardTitle}>📊 Přehled systému</div>
+        <div style={S.statGrid}>
+          {[{l:"Zaměstnanců",v:emps.length,s:"celkem"},{l:"Aktivních",v:emps.filter(([,u])=>u.active).length,s:""},{l:"Otevřených úkolů",v:asArray(tasks).filter(t=>!t.done).length,s:""},{l:"Splněných úkolů",v:asArray(tasks).filter(t=>t.done).length,s:""},{l:"Schůzí",v:meetings.length,s:""},{l:"Oznámení",v:announcements.length,s:""}]
+            .map(s=><div key={s.l} style={S.statCard}><div style={S.statLabel}>{s.l}</div><div style={S.statValue}>{s.v}</div><div style={S.statSub}>{s.s}</div></div>)}
+        </div>
+      </div>
+
+      <Modal open={addModal} onClose={()=>setAddModal(false)} title="➕ Přidat zaměstnance">
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={nName} onChange={setNName} placeholder="Celé jméno (např. Jana Nováková)"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={nLogin} onChange={setNLogin} placeholder="Login"/><Inp value={nPass} onChange={setNPass} placeholder="Heslo" type="password"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={nPos} onChange={setNPos} placeholder="Pozice"/><Inp value={nShift} onChange={setNShift} placeholder="Směna (8:00–16:00)"/></div>
+        <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}><Btn onClick={addUser}>Přidat</Btn><Btn type="outline" onClick={()=>setAddModal(false)}>Zrušit</Btn></div>
+      </Modal>
+      <Modal open={editModal} onClose={()=>setEditModal(false)} title="✏️ Upravit zaměstnance">
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={eName} onChange={setEName} placeholder="Celé jméno"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr 1fr"}}><Inp value={ePos} onChange={setEPos} placeholder="Pozice"/><Inp value={eShift} onChange={setEShift} placeholder="Směna"/></div>
+        <div style={{...S.formRow,gridTemplateColumns:"1fr"}}><Inp value={ePass} onChange={setEPass} placeholder="Nové heslo (prázdné = beze změny)" type="password"/></div>
+        <div style={{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}}><Btn onClick={saveEdit}>Uložit</Btn><Btn type="outline" onClick={()=>setEditModal(false)}>Zrušit</Btn></div>
+      </Modal>
+    </div>
+  );
+}
+</script>
+</body>
+</html>
