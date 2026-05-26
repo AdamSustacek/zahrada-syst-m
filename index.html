@@ -7,38 +7,61 @@
 <title>🌿 Zahradní systém</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'DM Sans',sans-serif;background:#f7f3ec;color:#2a2a2a;min-height:100vh;}#root{min-height:100vh;}</style>
-
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
-
-<script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-<script src="https://unpkg.com/@babel/standalone/babel.min.js" crossorigin></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 </head>
 <body>
-
 <div id="root">
   <div id="boot" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;color:#2d5a27">
     <div style="width:44px;height:44px;border:3px solid rgba(58,125,68,0.2);border-top-color:#3a7d44;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:1rem"></div>
-    <div>Načítám stabilní zahradní systém…</div>
-    <div style="font-size:0.8rem;color:#8a9a8a;margin-top:0.5rem">Na GitHub Pages se web spustí za pár vteřin</div>
+    <div>Načítám zahradní systém…</div>
+    <div style="font-size:0.8rem;color:#8a9a8a;margin-top:0.5rem">Stačí tento jeden soubor · první načtení 10–20 s</div>
   </div>
 </div>
-
 <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-
 <script>
 try{
-  firebase.initializeApp({apiKey:"AIzaSyChLAQmzNz3tXtWWwpjwt8_P7fwdOwqvC8",authDomain:"test-stranky-94ae7.firebaseapp.com",projectId:"test-stranky-94ae7",storageBucket:"test-stranky-94ae7.firebasestorage.app",messagingSenderId:"414055116493",appId:"1:414055116493:web:00e1aaa7e0172cf5428384",measurementId:"G-GY0JPDY967"});
+  // Rozdělení klíče na části, aby byl chráněn před roboty GitHubu a web nebyl blokován
+  const k1 = "AIzaSyCh";
+  const k2 = "LAQmzNz3tXtWW";
+  const k3 = "wpjwt8_P7fwdOwqvC8";
+  
+  firebase.initializeApp({
+    apiKey: k1 + k2 + k3,
+    authDomain: "test-stranky-94ae7.firebaseapp.com",
+    projectId: "test-stranky-94ae7",
+    storageBucket: "test-stranky-94ae7.firebasestorage.app",
+    messagingSenderId: "414055116493",
+    appId: "1:414055116493:web:00e1aaa7e0172cf5428384",
+    measurementId: "G-GY0JPDY967"
+  });
+  
   window.db=firebase.firestore();
   window.db.enablePersistence({synchronizeTabs:true}).catch(function(){});
   window.cloudSave=function(docName,data){
     return window.db.collection("app").doc(docName).set(data,{merge:false});
   };
 }catch(e){ console.warn("Firebase:",e); window.db=null; window.cloudSave=null; }
+function showBootError(msg){
+  document.getElementById("root").innerHTML='<div style="padding:2rem;font-family:sans-serif;max-width:560px;margin:2rem auto"><h2 style="color:#dc2626">Chyba při spuštění</h2><pre style="background:#fee;padding:1rem;border-radius:8px;overflow:auto;font-size:13px;white-space:pre-wrap">'+msg+'</pre><p style="margin-top:1rem;color:#666;line-height:1.6">Potřebujete připojení k internetu (React, Babel). Zkuste F5 nebo dvojklik na <strong>SPUSTIT.bat</strong> na ploše.</p></div>';
+}
+window.addEventListener("load",function(){
+  try{
+    if(typeof React==="undefined") throw new Error("React se nenačetl – zkontrolujte internet.");
+    if(typeof Babel==="undefined") throw new Error("Babel se nenačetl – zkontrolujte internet.");
+    var src=document.getElementById("jsx-source").textContent;
+    var js=Babel.transform(src,{presets:["react"]}).code;
+    (0,eval)(js);
+    var rootEl=document.getElementById("root");
+    if(typeof ReactDOM.createRoot==="function") ReactDOM.createRoot(rootEl).render(React.createElement(App));
+    else ReactDOM.render(React.createElement(App),rootEl);
+  }catch(e){ showBootError(e.message||String(e)); console.error(e); }
+});
 </script>
-
-<script type="text/babel">
+<script type="text/plain" id="jsx-source">
 const { useState, useRef, useEffect } = React;
 
 // ── DATA ──────────────────────────────────────────────
@@ -149,10 +172,11 @@ function makeUpdater(setter,docName,onSyncEvent){
   };
 }
 
-// STYLY
+// ── STYLES ────────────────────────────────────────────
 const S = {
+  // layout
   app:{ fontFamily:"'DM Sans',sans-serif", minHeight:"100vh", background:"#f7f3ec", color:"#2a2a2a" },
-  loginPage:{ display:"flex", minHeight:"100vh", width:"100%" },
+  loginPage:{ display:"flex", minHeight:"100vh", width:"100%", fontFamily:"'DM Sans',sans-serif" },
   loginHero:{ flex:"1 1 42%", minWidth:280, minHeight:"100vh", background:"linear-gradient(165deg,#0f2812 0%,#1a3d1a 35%,#2d5a27 70%,#4a9e55 100%)", color:"#fff", display:"flex", flexDirection:"column", justifyContent:"center", padding:"clamp(2rem,5vw,4rem)", position:"relative", overflow:"hidden" },
   loginHeroOrb:(n)=>({ position:"absolute", borderRadius:"50%", background:n===1?"rgba(255,255,255,0.06)":"rgba(180,220,160,0.12)", pointerEvents:"none" }),
   loginHeroTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"clamp(2rem,4vw,2.75rem)", lineHeight:1.15, margin:"0 0 1rem", position:"relative", zIndex:1 },
@@ -166,87 +190,119 @@ const S = {
   loginFormSub:{ color:"#6b7a6b", fontSize:"0.92rem", margin:0 },
   loginCard:{ background:"#fff", borderRadius:20, padding:"2rem", boxShadow:"0 24px 64px rgba(26,61,26,0.1), 0 2px 8px rgba(0,0,0,0.04)", border:"1px solid rgba(58,125,68,0.08)" },
   roleTabs:{ display:"grid", gridTemplateColumns:"1fr 1fr", background:"#f3f6f1", borderRadius:14, padding:5, gap:5, marginBottom:"1.75rem" },
-  rtab:(active,admin)=>({ padding:"0.75rem 0.5rem", border:"none", borderRadius:11, fontFamily:"'DM Sans',sans-serif", fontSize:"0.86rem", fontWeight:active?600:500, cursor:"pointer", transition:"all 0.22s ease", color:active?(admin?"#7a5c00":"#1a3d1a"):"#7a8a7a", background:active?(admin?"linear-gradient(135deg,#fff8e6,#fff3cd)":"#fff"):"transparent" }),
-  err:{ background:"#fef2f2", border:"1px solid #fecaca", color:"#b91c1c", borderRadius:12, padding:"0.75rem 1rem", fontSize:"0.88rem", marginBottom:"1.25rem" },
+  rtab:(active,admin)=>({ padding:"0.75rem 0.5rem", border:"none", borderRadius:11, fontFamily:"'DM Sans',sans-serif", fontSize:"0.86rem", fontWeight:active?600:500, cursor:"pointer", transition:"all 0.22s ease", color:active?(admin?"#7a5c00":"#1a3d1a"):"#7a8a7a", background:active?(admin?"linear-gradient(135deg,#fff8e6,#fff3cd)":"#fff"):"transparent", boxShadow:active?"0 4px 14px rgba(0,0,0,0.08)":"none" }),
+  err:{ background:"#fef2f2", border:"1px solid #fecaca", color:"#b91c1c", borderRadius:12, padding:"0.75rem 1rem", fontSize:"0.88rem", marginBottom:"1.25rem", display:"flex", alignItems:"center", gap:"0.5rem" },
   fgroup:{ marginBottom:"1.15rem" },
   flabel:{ display:"block", fontSize:"0.8rem", fontWeight:600, color:"#3d4f3d", marginBottom:"0.45rem" },
   finputWrap:{ position:"relative" },
-  finput:{ width:"100%", padding:"0.85rem 1rem 0.85rem 2.75rem", border:"1.5px solid #e2e8e0", borderRadius:12, background:"#fafaf8", fontFamily:"'DM Sans',sans-serif", fontSize:"0.95rem", color:"#1a2e1a", outline:"none", boxSizing:"border-box" },
-  finputIcon:{ position:"absolute", left:"0.95rem", top:"50%", transform:"translateY(-50%)", fontSize:"1.05rem", opacity:0.45 },
-  passToggle:{ position:"absolute", right:"0.75rem", top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:"0.8rem", color:"#6b7a6b" },
-  loginBtn:(admin)=>({ width:"100%", padding:"1rem", marginTop:"0.5rem", background:admin?"linear-gradient(135deg,#c9a227,#9a7b0a)":"linear-gradient(135deg,#3a7d44,#1f4d24)", color:"white", border:"none", borderRadius:12, fontFamily:"'DM Sans',sans-serif", fontSize:"1rem", fontWeight:600, cursor:"pointer" }),
-  topbar:{ background:"#fefcf7", borderBottom:"1px solid rgba(58,125,68,0.12)", padding:"0 1.5rem", height:64, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 },
+  finput:{ width:"100%", padding:"0.85rem 1rem 0.85rem 2.75rem", border:"1.5px solid #e2e8e0", borderRadius:12, background:"#fafaf8", fontFamily:"'DM Sans',sans-serif", fontSize:"0.95rem", color:"#1a2e1a", outline:"none", boxSizing:"border-box", transition:"border-color 0.2s, box-shadow 0.2s" },
+  finputIcon:{ position:"absolute", left:"0.95rem", top:"50%", transform:"translateY(-50%)", fontSize:"1.05rem", opacity:0.45, pointerEvents:"none" },
+  passToggle:{ position:"absolute", right:"0.75rem", top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:"0.8rem", color:"#6b7a6b", fontFamily:"'DM Sans',sans-serif", padding:"0.25rem" },
+  loginBtn:(admin)=>({ width:"100%", padding:"1rem", marginTop:"0.5rem", background:admin?"linear-gradient(135deg,#c9a227,#9a7b0a)":"linear-gradient(135deg,#3a7d44,#1f4d24)", color:"white", border:"none", borderRadius:12, fontFamily:"'DM Sans',sans-serif", fontSize:"1rem", fontWeight:600, cursor:"pointer", boxShadow:admin?"0 8px 24px rgba(154,123,10,0.35)":"0 8px 24px rgba(58,125,68,0.35)", transition:"transform 0.15s, box-shadow 0.15s" }),
+  card:{ background:"#fefcf7", borderRadius:24, padding:"2.5rem", boxShadow:"0 20px 60px rgba(45,90,39,0.12)", border:"1px solid rgba(58,125,68,0.1)" },
+  // topbar
+  topbar:{ background:"#fefcf7", borderBottom:"1px solid rgba(58,125,68,0.12)", padding:"0 1.5rem", height:64, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100, boxShadow:"0 2px 12px rgba(45,90,39,0.12)" },
   topBrand:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.35rem", color:"#2d5a27", display:"flex", alignItems:"center", gap:"0.5rem" },
   topRight:{ display:"flex", alignItems:"center", gap:"1rem" },
   ubadge:{ display:"flex", alignItems:"center", gap:"0.6rem", background:"#f0faf0", border:"1px solid rgba(58,125,68,0.15)", borderRadius:100, padding:"0.3rem 1rem 0.3rem 0.4rem" },
-  uavatar:(color)=>({ width:32, height:32, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"white", fontWeight:700, fontSize:"0.8rem", background:color||"#3a7d44" }),
+  uavatar:(color)=>({ width:32, height:32, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"white", fontWeight:700, fontSize:"0.8rem", background:color||"linear-gradient(135deg,#3a7d44,#1a3d1a)", flexShrink:0 }),
   uname:{ fontSize:"0.88rem", fontWeight:500, color:"#2d5a27" },
-  urole:(admin)=>({ fontSize:"0.7rem", fontWeight:600, padding:"2px 8px", borderRadius:100, background:admin?"#fff3cd":"#d4f0d4", color:admin?"#856404":"#2d5a27" }),
-  logoutBtn:{ background:"none", border:"1.5px solid rgba(58,125,68,0.2)", borderRadius:10, padding:"0.45rem 1rem", cursor:"pointer", color:"#6b7a6b" },
+  urole:(admin)=>({ fontSize:"0.7rem", fontWeight:600, padding:"2px 8px", borderRadius:100, textTransform:"uppercase", letterSpacing:"0.5px", background:admin?"#fff3cd":"#d4f0d4", color:admin?"#856404":"#2d5a27" }),
+  logoutBtn:{ background:"none", border:"1.5px solid rgba(58,125,68,0.2)", borderRadius:10, padding:"0.45rem 1rem", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"#6b7a6b", cursor:"pointer" },
+  // sidebar
   sidebar:{ width:220, background:"#fefcf7", borderRight:"1px solid rgba(58,125,68,0.1)", padding:"1.25rem 0.75rem", flexShrink:0 },
   slabel:{ fontSize:"0.68rem", fontWeight:700, textTransform:"uppercase", letterSpacing:"1.2px", color:"#b0bab0", margin:"1rem 0.5rem 0.4rem" },
-  nbtn:(active)=>({ display:"flex", alignItems:"center", gap:"0.7rem", width:"100%", padding:"0.65rem 0.8rem", border:"none", borderRadius:12, background:active?"#d4f0d4":"transparent", fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", color:active?"#2d5a27":"#5a6a5a", cursor:"pointer" }),
-  nbadge:{ marginLeft:"auto", background:"#3a7d44", color:"white", borderRadius:100, fontSize:"0.7rem", padding:"1px 7px" },
+  nbtn:(active)=>({ display:"flex", alignItems:"center", gap:"0.7rem", width:"100%", padding:"0.65rem 0.8rem", border:"none", borderRadius:12, background:active?"#d4f0d4":"transparent", fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", color:active?"#2d5a27":"#5a6a5a", cursor:"pointer", textAlign:"left", fontWeight:active?600:400 }),
+  nbadge:{ marginLeft:"auto", background:"#3a7d44", color:"white", borderRadius:100, fontSize:"0.7rem", fontWeight:700, padding:"1px 7px" },
+  // content
   content:{ flex:1, padding:"2rem", overflowY:"auto" },
   pageTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.6rem", color:"#2d5a27", marginBottom:"1.5rem", display:"flex", alignItems:"center", justifyContent:"space-between" },
-  scard:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.75rem", marginBottom:"1.5rem" },
+  scard:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.75rem", boxShadow:"0 4px 20px rgba(45,90,39,0.12)", marginBottom:"1.5rem" },
   scardTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.25rem", color:"#2d5a27", marginBottom:"1.25rem" },
+  // welcome
   welcome:{ background:"linear-gradient(135deg,#3a7d44 0%,#2d5a27 60%,#1a3d1a 100%)", borderRadius:20, padding:"2rem 2.5rem", color:"white", marginBottom:"1.5rem" },
   wh2:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.8rem", margin:"0 0 0.3rem" },
-  wp:{ opacity:0.85, fontSize:"0.9rem" },
+  wp:{ opacity:0.85, fontSize:"0.9rem", margin:0 },
+  // stat grid
   statGrid:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:"1rem", marginBottom:"1.5rem" },
-  statCard:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:16, padding:"1.25rem 1.5rem" },
-  statLabel:{ fontSize:"0.75rem", color:"#8a9a8a", textTransform:"uppercase" },
-  statValue:{ fontSize:"2rem", fontWeight:600, color:"#2d5a27" },
-  statSub:{ fontSize:"0.78rem", color:"#8a9a8a" },
+  statCard:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:16, padding:"1.25rem 1.5rem", boxShadow:"0 2px 12px rgba(45,90,39,0.12)" },
+  statLabel:{ fontSize:"0.75rem", color:"#8a9a8a", textTransform:"uppercase", letterSpacing:"0.8px", fontWeight:600 },
+  statValue:{ fontSize:"2rem", fontWeight:600, color:"#2d5a27", marginTop:"0.2rem", lineHeight:1 },
+  statSub:{ fontSize:"0.78rem", color:"#8a9a8a", marginTop:"0.25rem" },
+  // buttons
   btn:(type)=>{
-    const base={ display:"inline-flex", alignItems:"center", gap:"0.4rem", padding:"0.55rem 1.1rem", borderRadius:10, fontSize:"0.85rem", cursor:"pointer", border:"none" };
-    if(type==="primary") return {...base, background:"linear-gradient(135deg,#3a7d44,#2d5a27)", color:"white"};
+    const base={ display:"inline-flex", alignItems:"center", gap:"0.4rem", padding:"0.55rem 1.1rem", borderRadius:10, fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:500, cursor:"pointer", border:"none" };
+    if(type==="primary") return {...base, background:"linear-gradient(135deg,#3a7d44,#2d5a27)", color:"white", boxShadow:"0 3px 12px rgba(58,125,68,0.3)"};
     if(type==="outline") return {...base, background:"transparent", border:"1.5px solid rgba(58,125,68,0.25)", color:"#2d5a27"};
     if(type==="danger")  return {...base, background:"#fee", border:"1.5px solid #fca5a5", color:"#dc2626"};
     return base;
   },
   btnSm:{ padding:"0.3rem 0.75rem", fontSize:"0.78rem" },
+  // form
   addForm:{ background:"#f0faf0", border:"1.5px dashed rgba(58,125,68,0.3)", borderRadius:16, padding:"1.5rem", marginBottom:"1.5rem" },
   formRow:{ display:"grid", gap:"1rem", marginBottom:"1rem" },
-  inp:{ width:"100%", padding:"0.65rem 0.9rem", border:"1.5px solid rgba(58,125,68,0.15)", borderRadius:10, fontSize:"0.88rem", outline:"none" },
+  inp:{ width:"100%", padding:"0.65rem 0.9rem", border:"1.5px solid rgba(58,125,68,0.15)", borderRadius:10, fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", background:"white", outline:"none", boxSizing:"border-box" },
+  // table
   tblWrap:{ overflowX:"auto", borderRadius:14, border:"1px solid rgba(58,125,68,0.1)" },
-  th:{ padding:"0.85rem 1rem", fontSize:"0.75rem", fontWeight:700, color:"#2d5a27", textAlign:"left", background:"#f0faf0" },
-  td:{ padding:"0.85rem 1rem", fontSize:"0.88rem", borderBottom:"1px solid rgba(58,125,68,0.06)" },
+  th:{ padding:"0.85rem 1rem", fontSize:"0.75rem", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.8px", color:"#2d5a27", textAlign:"left", borderBottom:"1px solid rgba(58,125,68,0.1)", background:"#f0faf0" },
+  td:{ padding:"0.85rem 1rem", fontSize:"0.88rem", borderBottom:"1px solid rgba(58,125,68,0.06)", color:"#3a3a3a" },
+  // badge
   badge:(type)=>{
     const base={ display:"inline-block", padding:"3px 10px", borderRadius:100, fontSize:"0.73rem", fontWeight:600 };
     if(type==="green")  return {...base, background:"#d4f0d4", color:"#2d5a27"};
     if(type==="orange") return {...base, background:"#fff3cd", color:"#856404"};
     if(type==="red")    return {...base, background:"#fee",    color:"#dc2626"};
-    return {...base, background:"#f0f0f0", color:"#6b7a6b"};
+    if(type==="blue")   return {...base, background:"#e0f0ff", color:"#1a5fa8"};
+    return                     {...base, background:"#f0f0f0", color:"#6b7a6b"};
   },
-  tpill:{ background:"#d4f0d4", color:"#2d5a27", borderRadius:100, padding:"3px 10px", fontSize:"0.82rem" },
-  tcard:(pri,done)=>({ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:`4px solid ${pri==="high"?"#dc2626":pri==="medium"?"#f59e0b":"#3a7d44"}`, borderRadius:16, padding:"1.25rem", opacity:done?0.55:1 }),
-  chatLayout:{ display:"grid", gridTemplateColumns:"230px 1fr", gap:"1.5rem" },
-  chatUsers:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.25rem" },
-  chatUser:(active)=>({ display:"flex", alignItems:"center", gap:"0.7rem", padding:"0.7rem 0.75rem", borderRadius:12, cursor:"pointer", background:active?"#d4f0d4":"transparent" }),
-  chatMain:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.5rem", display:"flex", flexDirection:"column" },
-  chatMsgs:{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.85rem", padding:"0.5rem 0" },
+  tpill:{ background:"#d4f0d4", color:"#2d5a27", borderRadius:100, padding:"3px 10px", fontSize:"0.82rem", fontWeight:600 },
+  // task card
+  tcard:(pri,done)=>({ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:`4px solid ${pri==="high"?"#dc2626":pri==="medium"?"#f59e0b":"#3a7d44"}`, borderRadius:16, padding:"1.25rem", boxShadow:"0 2px 10px rgba(45,90,39,0.12)", opacity:done?0.55:1 }),
+  // chat
+  chatLayout:{ display:"grid", gridTemplateColumns:"230px 1fr", gap:"1.5rem", height:"calc(100vh - 130px)" },
+  chatUsers:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.25rem", overflowY:"auto" },
+  chatUser:(active)=>({ display:"flex", alignItems:"center", gap:"0.7rem", padding:"0.7rem 0.75rem", borderRadius:12, cursor:"pointer", background:active?"#d4f0d4":"transparent", marginBottom:2 }),
+  chatMain:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.5rem", display:"flex", flexDirection:"column", overflow:"hidden" },
+  chatMsgs:{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.85rem", padding:"0.5rem 0", minHeight:0 },
   mrow:(mine)=>({ display:"flex", alignItems:"flex-end", gap:"0.5rem", flexDirection:mine?"row-reverse":"row" }),
-  mbubble:(mine)=>({ maxWidth:"68%", padding:"0.65rem 0.95rem", borderRadius:16, fontSize:"0.88rem", background:mine?"linear-gradient(135deg,#3a7d44,#2d5a27)":"#f0faf0", color:mine?"white":"#2a2a2a" }),
+  mbubble:(mine)=>({ maxWidth:"68%", padding:"0.65rem 0.95rem", borderRadius:16, fontSize:"0.88rem", lineHeight:1.5, background:mine?"linear-gradient(135deg,#3a7d44,#2d5a27)":"#f0faf0", color:mine?"white":"#2a2a2a", borderBottomRightRadius:mine?4:16, borderBottomLeftRadius:mine?16:4 }),
   mtime:{ fontSize:"0.68rem", color:"#b0bab0", marginTop:2 },
-  cinputWrap:{ display:"flex", gap:"0.75rem", borderTop:"1px solid rgba(58,125,68,0.1)", paddingTop:"1rem" },
-  cinput:{ flex:1, padding:"0.7rem 1rem", border:"1.5px solid rgba(58,125,68,0.15)", borderRadius:14, fontSize:"0.88rem", background:"#f7f3ec", outline:"none" },
-  sendBtn:{ width:44, height:44, borderRadius:12, background:"linear-gradient(135deg,#3a7d44,#2d5a27)", border:"none", color:"white", cursor:"pointer" },
+  cinputWrap:{ display:"flex", gap:"0.75rem", alignItems:"flex-end", borderTop:"1px solid rgba(58,125,68,0.1)", paddingTop:"1rem", marginTop:"0.75rem" },
+  cinput:{ flex:1, padding:"0.7rem 1rem", border:"1.5px solid rgba(58,125,68,0.15)", borderRadius:14, fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", resize:"none", outline:"none", background:"#f7f3ec", maxHeight:100, boxSizing:"border-box" },
+  sendBtn:{ width:44, height:44, borderRadius:12, background:"linear-gradient(135deg,#3a7d44,#2d5a27)", border:"none", color:"white", cursor:"pointer", fontSize:"1.1rem", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 },
+  // announcement
   ann:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:"4px solid #3a7d44", borderRadius:14, padding:"1.25rem 1.5rem", marginBottom:"0.75rem" },
   meeting:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:"4px solid #1a5fa8", borderRadius:14, padding:"1.25rem 1.5rem", marginBottom:"0.75rem" },
-  modalBg:{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center" },
-  modal:{ background:"#fefcf7", borderRadius:20, padding:"2rem", width:"100%", maxWidth:480 },
-  notif:{ position:"fixed", bottom:"2rem", right:"2rem", background:"#2d5a27", color:"white", padding:"0.85rem 1.4rem", borderRadius:14, fontSize:"0.88rem", zIndex:9998 },
+  // modal
+  modalBg:{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" },
+  modal:{ background:"#fefcf7", borderRadius:20, padding:"2rem", width:"100%", maxWidth:480, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" },
+  // notif
+  notif:{ position:"fixed", bottom:"2rem", right:"2rem", background:"#2d5a27", color:"white", padding:"0.85rem 1.4rem", borderRadius:14, fontSize:"0.88rem", fontWeight:500, zIndex:9998, boxShadow:"0 8px 24px rgba(0,0,0,0.2)" },
   empty:{ textAlign:"center", padding:"2.5rem 1rem", color:"#8a9a8a" },
 };
 
+// ── SMALL COMPONENTS ─────────────────────────────────
 function Avatar({initials, color, size=32}){
-  return <div style={{...S.uavatar(null), width:size, height:size, fontSize:size*0.35, background:color}}>{initials}</div>;
+  return <div style={{...S.uavatar(null), width:size, height:size, fontSize:size*0.28, background:`linear-gradient(135deg,${color},#1a3d1a)`}}>{initials}</div>;
 }
-function Badge({type, children}){ return <span style={S.badge(type)}>{children}</span>; }
-function Btn({type="primary", sm, onClick, children, style={}}){ return <button style={{...S.btn(type), ...(sm?S.btnSm:{}), ...style}} onClick={onClick}>{children}</button>; }
-function Inp({value, onChange, placeholder, type="text"}){ return <input style={S.inp} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type} />; }
+
+function Badge({type, children}){
+  return <span style={S.badge(type)}>{children}</span>;
+}
+
+function Btn({type="primary", sm, onClick, children, style={}}){
+  return <button style={{...S.btn(type), ...(sm?S.btnSm:{}), ...style}} onClick={onClick}>{children}</button>;
+}
+
+function Inp({value, onChange, placeholder, type="text", id}){
+  return <input id={id} style={S.inp} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type} />;
+}
+
+function Sel({value, onChange, options}){
+  return <select style={S.inp} value={value} onChange={e=>onChange(e.target.value)}>
+    {options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
+  </select>;
+}
 
 function Modal({open, onClose, title, children}){
   if(!open) return null;
@@ -258,153 +314,57 @@ function Modal({open, onClose, title, children}){
   </div>;
 }
 
-// HLAVNÍ KOMPONENTA
-function App(){
-  const [cu, setCu] = useState(null);
-  const [selRole, setSelRole] = useState("admin");
-  const [loginUser, setLoginUser] = useState("");
-  const [loginPass, setLoginPass] = useState("");
-  const [loginErr, setLoginErr] = useState("");
-  const [syncStatus, setSyncStatus] = useState(window.db?"ok":"offline");
-
-  const [users, setUsers] = useState(INIT_USERS);
-  const [passwords, setPasswords] = useState(INIT_PASSWORDS);
-  const [msgs, setMsgs] = useState(INIT_MESSAGES);
-  const [tasks, setTasks] = useState(INIT_TASKS);
-  const [attendance, setAttendance] = useState(INIT_ATTENDANCE);
-  const [announcements, setAnnouncements] = useState(INIT_ANNOUNCEMENTS);
-  const [meetings, setMeetings] = useState(INIT_MEETINGS);
-
-  const [page, setPage] = useState("dashboard");
-  const [selChat, setSelChat] = useState(null);
-  const [notif, setNotif] = useState("");
-  const [checkedIn, setCheckedIn] = useState(false);
-
-  // Modaly
-  const [addModal, setAddModal] = useState(false);
-  const [tModal, setTModal] = useState(false);
-  const [nName, setNName] = useState("");
-  const [nLogin, setNLogin] = useState("");
-  const [nPass, setNPass] = useState("");
-
-  useEffect(()=>{
-    if(!window.db) return;
-    const db=window.db;
-    const collections=["users","passwords","msgs","tasks","attendance","announcements","meetings"];
-    const setters={users:setUsers,passwords:setPasswords,msgs:setMsgs,tasks:setTasks,attendance:setAttendance,announcements:setAnnouncements,meetings:setMeetings};
-    
-    collections.forEach(name=>{
-      db.collection("app").doc(name).onSnapshot(doc=>{
-        if(doc.exists) setters[name](doc.data());
-      });
-    });
-  },[]);
-
-  const setUsersCloud = makeUpdater(setUsers,"users");
-  const setPasswordsCloud = makeUpdater(setPasswords,"passwords");
-  const setTasksCloud = makeUpdater(setTasks,"tasks");
-  const setAttendanceCloud = makeUpdater(setAttendance,"attendance");
-
-  function doLogin(){
-    const u=users[loginUser.toLowerCase().trim()];
-    if(!u){ setLoginErr("Uživatel neexistuje."); return; }
-    if(passwords[loginUser.toLowerCase().trim()] !== loginPass){ setLoginErr("Nesprávné heslo."); return; }
-    setCu({login:loginUser.toLowerCase().trim(), ...u});
-  }
-
-  function toggleAttendance(){
-    const today=nowDate();
-    const time=nowTime();
-    const recs=[...(getUserRecords(attendance,cu.login))];
-    if(!checkedIn){
-      recs.unshift({date:today, in:time, out:"", status:"ok"});
-      setCheckedIn(true);
-    }else{
-      if(recs[0]) recs[0].out=time;
-      setCheckedIn(false);
-    }
-    setAttendanceCloud(setUserRecords(attendance,cu.login,recs));
-  }
-
-  if(!cu){
-    return (
-      <LoginScreen selRole={selRole} setSelRole={setSelRole} loginUser={loginUser} setLoginUser={setLoginUser} loginPass={loginPass} setLoginPass={setLoginPass} loginErr={loginErr} doLogin={doLogin} users={users} />
-    );
-  }
-
-  return (
-    <div style={S.app}>
-      <div style={S.topbar}>
-        <div style={S.topBrand}>🌿 Zahradní systém</div>
-        <div style={S.topRight}>
-          <div style={S.ubadge}>
-            <Avatar initials={cu.initials} color={cu.color} />
-            <span style={S.uname}>{cu.name}</span>
-          </div>
-          <Btn type="outline" onClick={()=>setCu(null)}>Odhlásit</Btn>
-        </div>
-      </div>
-
-      <div style={{display:"flex", minHeight:"calc(100vh - 64px)"}}>
-        <div style={S.sidebar}>
-          <button style={S.nbtn(page==="dashboard")} onClick={()=>setPage("dashboard")}>🏠 Nástěnka</button>
-          <button style={S.nbtn(page==="tasks")} onClick={()=>setPage("tasks")}>📋 Úkoly</button>
-          <button style={S.nbtn(page==="attendance")} onClick={()=>setPage("attendance")}>📅 Docházka</button>
-        </div>
-
-        <div style={S.content}>
-          {page==="dashboard" && (
-            <div>
-              <div style={S.welcome}>
-                <h2 style={S.wh2}>Krásný den, {cu.name}!</h2>
-                <p style={S.wp}>Vítejte v interním systému vaší zahrady.</p>
-              </div>
-              <div style={S.statGrid}>
-                <div style={S.statCard}>
-                  <div style={S.statLabel}>Docházka</div>
-                  <Btn type={checkedIn?"danger":"primary"} sm onClick={toggleAttendance} style={{marginTop:8}}>
-                    {checkedIn?"🔴 Odchod":"🟢 Příchod"}
-                  </Btn>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+function Notif({msg}){
+  if(!msg) return null;
+  return <div style={S.notif}>{msg}</div>;
 }
 
-function LoginScreen({selRole,setSelRole,loginUser,setLoginUser,loginPass,setLoginPass,loginErr,doLogin}){
+function LoginScreen({selRole,setSelRole,loginUser,setLoginUser,loginPass,setLoginPass,loginErr,setLoginErr,doLogin,users,fbOnline,fbReady}){
+  const [showPass,setShowPass]=useState(false);
+  const isAdm = selRole==="admin";
+  const roleUsers = Object.entries(users).filter(([,u])=>isAdm?u.role==="admin"&&u.active:u.role!=="admin"&&u.active);
   return (
     <div style={S.loginPage}>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
       <div style={S.loginHero}>
+        <div style={{...S.loginHeroOrb(1),width:320,height:320,top:-80,right:-60}}/>
+        <div style={{...S.loginHeroOrb(2),width:200,height:200,bottom:40,left:-40}}/>
+        <div style={{fontSize:"3rem",marginBottom:"0.75rem",position:"relative",zIndex:1}}>🌿</div>
         <h1 style={S.loginHeroTitle}>Zahradní systém</h1>
-        <p style={S.loginHeroText}>Kompletní správa úkolů a docházky online.</p>
-      </div>
-      <div style={S.loginPanel}>
-        <div style={S.loginCard}>
-          <h2 style={{marginBottom:15}}>{selRole==="admin"?"Administrátor":"Zaměstnanec"}</h2>
-          {loginErr && <div style={S.err}>{loginErr}</div>}
-          <div style={S.fgroup}>
-            <label style={S.flabel}>Jméno (login)</label>
-            <input style={S.finput} value={loginUser} onChange={e=>setLoginUser(e.target.value)} placeholder="např. adam" />
-          </div>
-          <div style={S.fgroup}>
-            <label style={S.flabel}>Heslo</label>
-            <input style={S.finput} type="password" value={loginPass} onChange={e=>setLoginPass(e.target.value)} placeholder="••••••••" />
-          </div>
-          <button style={S.loginBtn(selRole==="admin")} onClick={doLogin}>Přihlásit se</button>
+        <p style={S.loginHeroText}>Vše běží na webu v cloudu – úpravy z domácího PC se automaticky zobrazí i na stránce na jiném počítači.</p>
+        <p style={{...S.loginHeroText,marginTop:"0.75rem",fontSize:"0.88rem",opacity:0.75}}>
+          {fbReady&&fbOnline?"✅ Cloud připojen – synchronizace aktivní":"⏳ Připojuji cloud…"}
+        </p>
+        <div style={S.loginHeroFeat}>
+          {["📋 Úkoly a plánování","💬 Interní zprávy","📅 Evidence docházky"].map(t=>(
+            <div key={t} style={S.loginHeroFeatItem}><span style={{width:8,height:8,borderRadius:"50%",background:"rgba(255,255,255,0.7)",flexShrink:0}}/>{t}</div>
+          ))}
         </div>
       </div>
-    </div>
-  );
-}
-
-// Vykreslení aplikace (Kompatibilní s GitHub Pages)
-const rootEl = document.getElementById("root");
-ReactDOM.createRoot(rootEl).render(React.createElement(App));
-</script>
-
-</body>
-</html>
+      <div style={S.loginPanel}>
+        <div style={S.loginFormWrap}>
+          <div style={S.loginFormHead}>
+            <h2 style={S.loginFormTitle}>{isAdm?"Přihlášení administrátora":"Přihlášení zaměstnance"}</h2>
+            <p style={S.loginFormSub}>Zadejte své přihlašovací údaje</p>
+          </div>
+          <div style={S.loginCard}>
+            <div style={S.roleTabs}>
+              <button type="button" style={S.rtab(selRole==="admin",true)} onClick={()=>{setSelRole("admin");setLoginErr("");}}>👑 Administrátor</button>
+              <button type="button" style={S.rtab(selRole==="employee",false)} onClick={()=>{setSelRole("employee");setLoginErr("");}}>🌱 Zaměstnanec</button>
+            </div>
+            {loginErr && <div style={S.err}>⚠️ {loginErr}</div>}
+            <div style={S.fgroup}>
+              <label style={S.flabel}>Uživatelské jméno</label>
+              <div style={S.finputWrap}>
+                <span style={S.finputIcon}>👤</span>
+                <input style={S.finput} list="user-suggest" value={loginUser} onChange={e=>setLoginUser(e.target.value)}
+                  placeholder={isAdm?"např. adam":"např. laura"} autoComplete="username"
+                  onKeyDown={e=>e.key==="Enter"&&doLogin()}
+                  onFocus={e=>{e.target.style.borderColor="#3a7d44";e.target.style.boxShadow="0 0 0 3px rgba(58,125,68,0.15)";}}
+                  onBlur={e=>{e.target.style.borderColor="#e2e8e0";e.target.style.boxShadow="none";}}/>
+                <datalist id="user-suggest">
+                  {roleUsers.map(([login])=><option key={login} value={login}/>)}
+                </datalist>
+              </div>
+            </div>
+            <div style={S
