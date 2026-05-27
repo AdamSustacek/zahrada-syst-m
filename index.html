@@ -784,11 +784,15 @@ function Admin({cu,users,setUsers,pws,setPws,tasks,anns,meets,msgs,setMsgs,notif
     fsSet("users",login,{active:!active});
     notify(active?"🚫 Zaměstnanec deaktivován":"✅ Účet aktivován");
   }
-  function deleteUser(login,name){
-    if(!window.confirm("Opravdu chcete smazat zaměstnance "+name+"? Tuto akci nelze vrátit."))return;
-    fsDel("users",login);
-    fsDel("passwords",login);
-    notify("🗑️ Zaměstnanec "+name+" byl smazán");
+  var _dm=useState(false),dm=_dm[0],setDm=_dm[1];
+  var _dl=useState(""),dl=_dl[0],setDl=_dl[1];
+  var _dn=useState(""),dn=_dn[0],setDn=_dn[1];
+  function confirmDelete(login,name){setDl(login);setDn(name);setDm(true);}
+  function doDelete(){
+    fsDel("users",dl);
+    fsDel("passwords",dl);
+    setDm(false);
+    notify("🗑️ Zaměstnanec "+dn+" byl odstraněn ze systému");
   }
   function bc_send(){
     if(!bc.trim()){notify("Napište zprávu");return;}
@@ -823,7 +827,7 @@ function Admin({cu,users,setUsers,pws,setPws,tasks,anns,meets,msgs,setMsgs,notif
               h("td",{style:TD},h("div",{style:{display:"flex",gap:"0.4rem",flexWrap:"wrap"}},
                 h(Btn,{t:"outline",sm:true,onClick:function(){openE(login);}},"✏️ Upravit"),
                 h(Btn,{t:"danger",sm:true,onClick:function(){toggleActive(login,u.active);}},u.active?"🚫 Deaktivovat":"✅ Aktivovat"),
-                h(Btn,{t:"danger",sm:true,onClick:function(){deleteUser(login,u.name);},style:{background:"#dc2626",color:"white",border:"none"}},"🗑️ Smazat"))));
+                h(Btn,{t:"danger",sm:true,onClick:function(){confirmDelete(login,u.name);},style:{background:"#dc2626",color:"white",border:"none"}},"🔥 Vyhodit"))));
           }))))),
     h("div",{style:SCARD},
       h("div",{style:SCARDTIT},"📡 Zpráva všem zaměstnancům"),
@@ -861,7 +865,15 @@ function Admin({cu,users,setUsers,pws,setPws,tasks,anns,meets,msgs,setMsgs,notif
         h(Inp,{val:es,set:setEs,ph:"Směna"})),
       h("div",{style:{marginBottom:"1rem"}},h(Inp,{val:ep,set:setEp,ph:"Nové heslo (prázdné = beze změny)",tp:"password"})),
       h("div",{style:{display:"flex",gap:"0.75rem"}},
-        h(Btn,{onClick:saveE},"Uložit"),h(Btn,{t:"outline",onClick:function(){setEm(false);}},"Zrušit"))));
+        h(Btn,{onClick:saveE},"Uložit"),h(Btn,{t:"outline",onClick:function(){setEm(false);}},"Zrušit"))),
+    h(Modal,{open:dm,onClose:function(){setDm(false);},title:"🔥 Vyhodit zaměstnance"},
+      h("div",{style:{background:"#fef2f2",border:"1px solid #fca5a5",borderRadius:14,padding:"1.25rem",marginBottom:"1.5rem",textAlign:"center"}},
+        h("div",{style:{fontSize:"3rem",marginBottom:"0.5rem"}},"⚠️"),
+        h("div",{style:{fontWeight:700,fontSize:"1rem",color:"#dc2626",marginBottom:"0.4rem"}},"Opravdu vyhodit "+dn+"?"),
+        h("div",{style:{fontSize:"0.88rem",color:"#6b7280",lineHeight:1.5}},"Zaměstnanec bude permanentně odstraněn ze systému včetně hesla. Pokud ho budete chtít vrátit, musíte ho přidat znovu.")),
+      h("div",{style:{display:"flex",gap:"0.75rem",justifyContent:"center"}},
+        h("button",{style:{padding:"0.7rem 1.5rem",background:"#dc2626",color:"white",border:"none",borderRadius:11,fontFamily:"'DM Sans',sans-serif",fontSize:"0.9rem",fontWeight:700,cursor:"pointer"},onClick:doDelete},"🔥 Ano, vyhodit"),
+        h(Btn,{t:"outline",onClick:function(){setDm(false);}},"Zrušit"))));
 }
 
 ReactDOM.render(h(App),document.getElementById("root"));
