@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🌿 Zahradní systém</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌿</text></svg>">
 <!-- Firebase MUSÍ být první -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
@@ -783,6 +784,12 @@ function Admin({cu,users,setUsers,pws,setPws,tasks,anns,meets,msgs,setMsgs,notif
     fsSet("users",login,{active:!active});
     notify(active?"🚫 Zaměstnanec deaktivován":"✅ Účet aktivován");
   }
+  function deleteUser(login,name){
+    if(!window.confirm("Opravdu chcete smazat zaměstnance "+name+"? Tuto akci nelze vrátit."))return;
+    fsDel("users",login);
+    fsDel("passwords",login);
+    notify("🗑️ Zaměstnanec "+name+" byl smazán");
+  }
   function bc_send(){
     if(!bc.trim()){notify("Napište zprávu");return;}
     var t=ntime();
@@ -815,7 +822,8 @@ function Admin({cu,users,setUsers,pws,setPws,tasks,anns,meets,msgs,setMsgs,notif
               h("td",{style:TD},h(Bdg,{t:u.active?"green":"red"},u.active?"✅ Aktivní":"🚫 Deaktivován")),
               h("td",{style:TD},h("div",{style:{display:"flex",gap:"0.4rem",flexWrap:"wrap"}},
                 h(Btn,{t:"outline",sm:true,onClick:function(){openE(login);}},"✏️ Upravit"),
-                h(Btn,{t:"danger",sm:true,onClick:function(){toggleActive(login,u.active);}},u.active?"🚫 Vyhodit":"✅ Aktivovat"))));
+                h(Btn,{t:"danger",sm:true,onClick:function(){toggleActive(login,u.active);}},u.active?"🚫 Deaktivovat":"✅ Aktivovat"),
+                h(Btn,{t:"danger",sm:true,onClick:function(){deleteUser(login,u.name);},style:{background:"#dc2626",color:"white",border:"none"}},"🗑️ Smazat"))));
           }))))),
     h("div",{style:SCARD},
       h("div",{style:SCARDTIT},"📡 Zpráva všem zaměstnancům"),
