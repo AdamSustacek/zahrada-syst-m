@@ -3,920 +3,860 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Zahradní systém – interní portál pro zaměstnance a administrátora">
 <title>🌿 Zahradní systém</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'DM Sans',sans-serif;background:#f7f3ec;color:#2a2a2a;min-height:100vh;}#root{min-height:100vh;}</style>
-<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<!-- Firebase MUSÍ být první -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- React -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.development.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:#edeae2;color:#2a2a2a;min-height:100vh;}
+body::before{content:'';position:fixed;top:-200px;right:-200px;width:700px;height:700px;border-radius:50%;
+  background:radial-gradient(circle,rgba(58,125,68,0.07) 0%,transparent 70%);pointer-events:none;z-index:0;}
+body::after{content:'';position:fixed;bottom:-200px;left:-200px;width:600px;height:600px;border-radius:50%;
+  background:radial-gradient(circle,rgba(90,150,60,0.05) 0%,transparent 70%);pointer-events:none;z-index:0;}
+#root{position:relative;z-index:1;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:rgba(58,125,68,0.22);border-radius:10px;}
+::-webkit-scrollbar-thumb:hover{background:rgba(58,125,68,0.4);}
+input,select,textarea,button{font-family:'DM Sans',sans-serif;}
+button{transition:all 0.18s ease;}
+button:hover{filter:brightness(1.05);}
+button:active{transform:scale(0.97);}
+input:focus,select:focus,textarea:focus{outline:none;border-color:#3a7d44!important;box-shadow:0 0 0 3px rgba(58,125,68,0.12)!important;background:white!important;}
+@keyframes spin{to{transform:rotate(360deg);}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+tr:hover td{background:rgba(238,247,238,0.5);}
+</style>
 </head>
 <body>
-<div id="root">
-  <div id="boot" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif;color:#2d5a27">
-    <div style="width:44px;height:44px;border:3px solid rgba(58,125,68,0.2);border-top-color:#3a7d44;border-radius:50%;animation:spin 0.8s linear infinite;margin-bottom:1rem"></div>
-    <div>Načítám zahradní systém…</div>
-    <div style="font-size:0.8rem;color:#8a9a8a;margin-top:0.5rem">Stačí tento jeden soubor · první načtení 10–20 s</div>
-  </div>
-</div>
-<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+<div id="root"></div>
 <script>
-try{
-  // Rozdělení klíče na části, aby byl chráněn před roboty GitHubu a web nebyl blokován
-  const k1 = "AIzaSyCh";
-  const k2 = "LAQmzNz3tXtWW";
-  const k3 = "wpjwt8_P7fwdOwqvC8";
-  
-  firebase.initializeApp({
-    apiKey: k1 + k2 + k3,
-    authDomain: "test-stranky-94ae7.firebaseapp.com",
-    projectId: "test-stranky-94ae7",
-    storageBucket: "test-stranky-94ae7.firebasestorage.app",
-    messagingSenderId: "414055116493",
-    appId: "1:414055116493:web:00e1aaa7e0172cf5428384",
-    measurementId: "G-GY0JPDY967"
-  });
-  
-  window.db=firebase.firestore();
-  window.db.enablePersistence({synchronizeTabs:true}).catch(function(){});
-  window.cloudSave=function(docName,data){
-    return window.db.collection("app").doc(docName).set(data,{merge:false});
-  };
-}catch(e){ console.warn("Firebase:",e); window.db=null; window.cloudSave=null; }
-function showBootError(msg){
-  document.getElementById("root").innerHTML='<div style="padding:2rem;font-family:sans-serif;max-width:560px;margin:2rem auto"><h2 style="color:#dc2626">Chyba při spuštění</h2><pre style="background:#fee;padding:1rem;border-radius:8px;overflow:auto;font-size:13px;white-space:pre-wrap">'+msg+'</pre><p style="margin-top:1rem;color:#666;line-height:1.6">Potřebujete připojení k internetu (React, Babel). Zkuste F5 nebo dvojklik na <strong>SPUSTIT.bat</strong> na ploše.</p></div>';
+const {useState,useRef,useEffect,createElement:h}=React;
+
+// ── FIREBASE CONFIG ──────────────────────────────────
+const firebaseConfig={
+  apiKey:"AIzaSyChLAQmzNz3tXtWWwpjwt8_P7fwdOwqvC8",
+  authDomain:"test-stranky-94ae7.firebaseapp.com",
+  projectId:"test-stranky-94ae7",
+  storageBucket:"test-stranky-94ae7.firebasestorage.app",
+  messagingSenderId:"414055116493",
+  appId:"1:414055116493:web:5bee467091a1680d428384"
+};
+
+// Firebase inicializace
+var db=null;
+var fbReady=false;
+try {
+  if(!firebase.apps||firebase.apps.length===0) firebase.initializeApp(firebaseConfig);
+  db=firebase.firestore();
+  fbReady=true;
+  console.log("✅ Firebase připojen");
+} catch(e) {
+  console.error("❌ Firebase chyba:", e);
 }
-window.addEventListener("load",function(){
-  try{
-    if(typeof React==="undefined") throw new Error("React se nenačetl – zkontrolujte internet.");
-    if(typeof Babel==="undefined") throw new Error("Babel se nenačetl – zkontrolujte internet.");
-    var src=document.getElementById("jsx-source").textContent;
-    var js=Babel.transform(src,{presets:["react"]}).code;
-    (0,eval)(js);
-    var rootEl=document.getElementById("root");
-    if(typeof ReactDOM.createRoot==="function") ReactDOM.createRoot(rootEl).render(React.createElement(App));
-    else ReactDOM.render(React.createElement(App),rootEl);
-  }catch(e){ showBootError(e.message||String(e)); console.error(e); }
-});
-</script>
-<script type="text/plain" id="jsx-source">
-const { useState, useRef, useEffect } = React;
 
-// ── DATA ──────────────────────────────────────────────
-const INIT_USERS = {
-  adam:  { name:"Adam Šustáček",  role:"admin",    initials:"AŠ", pos:"Administrátor · Vedoucí",              shift:"8:00–17:00",  color:"#b8860b", active:true },
-  laura: { name:"Laura Kováčová", role:"employee", initials:"LA", pos:"Zástupce šéfa · Hlavní zahradník",     shift:"8:30–20:00",  color:"#3a7d44", active:true },
-  peter: { name:"Petr Dvořák",    role:"employee", initials:"PD", pos:"Zahradník",                            shift:"7:00–15:30",  color:"#1a5fa8", active:true },
-  marta: { name:"Marta Horáková", role:"employee", initials:"MH", pos:"Zahradnice",                           shift:"9:00–17:30",  color:"#993556", active:true },
+// Firestore helpers
+function fsSet(col,id,data){
+  if(!db)return Promise.resolve();
+  return db.collection(col).doc(id).set(data,{merge:true}).catch(e=>console.error("fsSet",e));
+}
+function fsDel(col,id){
+  if(!db)return Promise.resolve();
+  return db.collection(col).doc(id).delete().catch(e=>console.error("fsDel",e));
+}
+function fsListen(col,cb){
+  if(!db)return function(){};
+  return db.collection(col).onSnapshot(function(snap){
+    var docs={};
+    snap.forEach(function(d){docs[d.id]=d.data();});
+    cb(docs);
+  }, function(e){console.error("fsListen err",e);});
+}
+function fsListenArr(col,orderBy,cb){
+  if(!db)return function(){};
+  var q=db.collection(col);
+  if(orderBy)q=q.orderBy(orderBy);
+  return q.onSnapshot(function(snap){
+    var arr=[];
+    snap.forEach(function(d){arr.push(Object.assign({},d.data(),{_id:d.id}));});
+    cb(arr);
+  }, function(e){console.error("fsListenArr err",e);});
+}
+
+// ── VÝCHOZÍ DATA ─────────────────────────────────────
+const DEF_USERS={
+  adam:{name:"Adam Šustáček",role:"admin",initials:"AŠ",pos:"Administrátor · Vedoucí",shift:"8:00–17:00",color:"#b8860b",active:true},
+  laura:{name:"Laura Kováčová",role:"employee",initials:"LA",pos:"Zástupce šéfa · Hlavní zahradník",shift:"8:30–20:00",color:"#3a7d44",active:true},
+  peter:{name:"Petr Dvořák",role:"employee",initials:"PD",pos:"Zahradník",shift:"7:00–15:30",color:"#1a5fa8",active:true},
+  marta:{name:"Marta Horáková",role:"employee",initials:"MH",pos:"Zahradnice",shift:"9:00–17:30",color:"#993556",active:true},
 };
-const INIT_PASSWORDS = { adam:"zahrada123", laura:"kvetina", peter:"strom456", marta:"ruze789" };
+const DEF_PW={adam:"zahrada123",laura:"kvetina",peter:"strom456",marta:"ruze789"};
 
-const INIT_MESSAGES = {
-  "adam-laura": [
-    { from:"adam", text:"Ahoj Lauro, jak probíhá dnešní den?", time:"9:15" },
-    { from:"laura", text:"Dobrý den! Vše v pořádku, rostliny jsou zalité 🌱", time:"9:18" },
-  ],
-  "adam-peter": [{ from:"adam", text:"Petře, nezapomeň na přesazování růží.", time:"8:30" }],
-  "adam-marta": [],
-  "laura-peter": [
-    { from:"laura", text:"Petře, potřebuji tvoji pomoc u skleníku!", time:"10:00" },
-    { from:"peter", text:"Jdu hned, jen dokončím záhon.", time:"10:02" },
-  ],
-  "laura-marta": [],
-  "peter-marta": [],
-};
-
-const INIT_TASKS = [
-  { id:1, name:"Zalít skleník",       who:"Laura", pri:"high",   date:"2026-05-24", done:false, desc:"Skleník č.2 a č.3" },
-  { id:2, name:"Přesadit růže",       who:"Petr",  pri:"medium", date:"2026-05-25", done:false, desc:"" },
-  { id:3, name:"Nakoupit substráty",  who:"Marta", pri:"low",    date:"2026-05-26", done:false, desc:"" },
-  { id:4, name:"Oprava závlahy",      who:"Petr",  pri:"high",   date:"2026-05-24", done:true,  desc:"Trubka č.4" },
-];
-
-const INIT_ATTENDANCE = {
-  laura:[
-    { date:"2026-05-23", in:"8:35",  out:"20:05", status:"ok" },
-    { date:"2026-05-22", in:"8:28",  out:"20:00", status:"ok" },
-    { date:"2026-05-21", in:"9:15",  out:"20:00", status:"late" },
-  ],
-  peter:[
-    { date:"2026-05-23", in:"7:02",  out:"15:28", status:"ok" },
-    { date:"2026-05-22", in:"7:00",  out:"15:30", status:"ok" },
-  ],
-  marta:[
-    { date:"2026-05-23", in:"9:05",  out:"17:35", status:"ok" },
-    { date:"2026-05-20", in:"",      out:"",       status:"absence" },
-  ],
-  adam:[],
-};
-
-const INIT_ANNOUNCEMENTS = [
-  { id:1, author:"Adam Šustáček", time:"24.5.2026 08:00", title:"Vítejte na novém portálu!", text:"Milí kolegové, s radostí oznamujeme spuštění nového systému. Vše potřebné najdete přímo zde. 😊" },
-  { id:2, author:"Adam Šustáček", time:"24.5.2026 08:30", title:"Schůze pátek 15:00", text:"V pátek 30.5. se koná povinná porada v kanceláři. Téma: plán na červen." },
-];
-
-const INIT_MEETINGS = [
-  { id:1, title:"Měsíční porada",     date:"2026-05-30", time:"15:00", place:"Kancelář",    desc:"Plánování na červen.",         attendees:"Všichni" },
-  { id:2, title:"Dodavatel substrátu",date:"2026-06-03", time:"10:00", place:"Vstupní hala",desc:"Jednání s dodavatelem.",        attendees:"Adam, Laura" },
-];
-
-// ── HELPERS ───────────────────────────────────────────
-const ORDER = ["adam","laura","peter","marta"];
-function chatKey(a,b){
-  const s=[a,b].sort((x,y)=>(ORDER.indexOf(x)===-1?99:ORDER.indexOf(x))-(ORDER.indexOf(y)===-1?99:ORDER.indexOf(y)));
+// ── HELPERS ──────────────────────────────────────────
+const ORD=["adam","laura","peter","marta"];
+function ckey(a,b){
+  var s=[a,b].sort(function(x,y){
+    var xi=ORD.indexOf(x)<0?99:ORD.indexOf(x);
+    var yi=ORD.indexOf(y)<0?99:ORD.indexOf(y);
+    return xi-yi;
+  });
   return s[0]+"-"+s[1];
 }
-function calcHours(inT,outT){
-  if(!inT||!outT) return "—";
-  const [ih,im]=inT.split(":").map(Number),[oh,om]=outT.split(":").map(Number);
-  const m=(oh*60+om)-(ih*60+im);
-  if(m<=0) return "—";
-  return `${Math.floor(m/60)}:${String(m%60).padStart(2,"0")}`;
+function hrs(i,o){
+  if(!i||!o)return"—";
+  var ih=parseInt(i.split(":")[0]),im=parseInt(i.split(":")[1]);
+  var oh=parseInt(o.split(":")[0]),om=parseInt(o.split(":")[1]);
+  var m=(oh*60+om)-(ih*60+im);
+  return m>0?Math.floor(m/60)+":"+String(m%60).padStart(2,"0"):"—";
 }
-function nowTime(){ return new Date().toTimeString().slice(0,5); }
-function nowDate(){ return new Date().toISOString().split("T")[0]; }
-function todayLabel(){ return new Date().toLocaleDateString("cs-CZ",{weekday:"long",day:"numeric",month:"long"}); }
-function isAdmin(cu){ return !!(cu && (cu.role==="admin" || cu.login==="adam")); }
-function canAccessAdmin(cu){ return isAdmin(cu); }
-function asArray(v){ if(Array.isArray(v)) return v; if(v&&typeof v==="object") return Object.values(v); return []; }
-function normalizeTasks(raw){ return asArray(raw); }
-function normalizeAttendance(raw,users){
-  if(!raw) return {};
-  if(Array.isArray(raw)){
-    const m={};
-    Object.keys(users).forEach(k=>{m[k]=[];});
-    const first=Object.keys(users).find(k=>users[k].role!=="admin");
-    if(first) m[first]=raw;
-    return m;
-  }
-  return raw;
-}
-function getUserRecords(all,login){ return (all&&all[login])||[]; }
-function setUserRecords(all,login,records){ return {...(all||{}),[login]:records}; }
-function makeUpdater(setter,docName,onSyncEvent){
-  return function(v){
-    setter(prev=>{
-      const n=typeof v==="function"?v(prev):v;
-      if(window.cloudSave){
-        onSyncEvent&&onSyncEvent("saving");
-        window.cloudSave(docName,n).then(function(){
-          onSyncEvent&&onSyncEvent("saved");
-        }).catch(function(err){
-          onSyncEvent&&onSyncEvent("error",err.message||String(err));
-        });
-      }
-      return n;
-    });
-  };
-}
+function ntime(){return new Date().toTimeString().slice(0,5);}
+function ndate(){return new Date().toISOString().split("T")[0];}
+function today(){return new Date().toLocaleDateString("cs-CZ",{weekday:"long",day:"numeric",month:"long"});}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
 
-// ── STYLES ────────────────────────────────────────────
-const S = {
-  // layout
-  app:{ fontFamily:"'DM Sans',sans-serif", minHeight:"100vh", background:"#f7f3ec", color:"#2a2a2a" },
-  loginPage:{ display:"flex", minHeight:"100vh", width:"100%", fontFamily:"'DM Sans',sans-serif" },
-  loginHero:{ flex:"1 1 42%", minWidth:280, minHeight:"100vh", background:"linear-gradient(165deg,#0f2812 0%,#1a3d1a 35%,#2d5a27 70%,#4a9e55 100%)", color:"#fff", display:"flex", flexDirection:"column", justifyContent:"center", padding:"clamp(2rem,5vw,4rem)", position:"relative", overflow:"hidden" },
-  loginHeroOrb:(n)=>({ position:"absolute", borderRadius:"50%", background:n===1?"rgba(255,255,255,0.06)":"rgba(180,220,160,0.12)", pointerEvents:"none" }),
-  loginHeroTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"clamp(2rem,4vw,2.75rem)", lineHeight:1.15, margin:"0 0 1rem", position:"relative", zIndex:1 },
-  loginHeroText:{ fontSize:"1rem", opacity:0.88, lineHeight:1.65, maxWidth:360, margin:0, position:"relative", zIndex:1 },
-  loginHeroFeat:{ display:"flex", flexDirection:"column", gap:"0.85rem", marginTop:"2.5rem", position:"relative", zIndex:1 },
-  loginHeroFeatItem:{ display:"flex", alignItems:"center", gap:"0.75rem", fontSize:"0.9rem", opacity:0.92 },
-  loginPanel:{ flex:"1 1 58%", minWidth:300, minHeight:"100vh", background:"linear-gradient(180deg,#faf8f4 0%,#f0ebe3 100%)", display:"flex", alignItems:"center", justifyContent:"center", padding:"clamp(1.5rem,4vw,3rem)" },
-  loginFormWrap:{ width:"100%", maxWidth:420 },
-  loginFormHead:{ marginBottom:"2rem" },
-  loginFormTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.85rem", color:"#1a3d1a", margin:"0 0 0.35rem" },
-  loginFormSub:{ color:"#6b7a6b", fontSize:"0.92rem", margin:0 },
-  loginCard:{ background:"#fff", borderRadius:20, padding:"2rem", boxShadow:"0 24px 64px rgba(26,61,26,0.1), 0 2px 8px rgba(0,0,0,0.04)", border:"1px solid rgba(58,125,68,0.08)" },
-  roleTabs:{ display:"grid", gridTemplateColumns:"1fr 1fr", background:"#f3f6f1", borderRadius:14, padding:5, gap:5, marginBottom:"1.75rem" },
-  rtab:(active,admin)=>({ padding:"0.75rem 0.5rem", border:"none", borderRadius:11, fontFamily:"'DM Sans',sans-serif", fontSize:"0.86rem", fontWeight:active?600:500, cursor:"pointer", transition:"all 0.22s ease", color:active?(admin?"#7a5c00":"#1a3d1a"):"#7a8a7a", background:active?(admin?"linear-gradient(135deg,#fff8e6,#fff3cd)":"#fff"):"transparent", boxShadow:active?"0 4px 14px rgba(0,0,0,0.08)":"none" }),
-  err:{ background:"#fef2f2", border:"1px solid #fecaca", color:"#b91c1c", borderRadius:12, padding:"0.75rem 1rem", fontSize:"0.88rem", marginBottom:"1.25rem", display:"flex", alignItems:"center", gap:"0.5rem" },
-  fgroup:{ marginBottom:"1.15rem" },
-  flabel:{ display:"block", fontSize:"0.8rem", fontWeight:600, color:"#3d4f3d", marginBottom:"0.45rem" },
-  finputWrap:{ position:"relative" },
-  finput:{ width:"100%", padding:"0.85rem 1rem 0.85rem 2.75rem", border:"1.5px solid #e2e8e0", borderRadius:12, background:"#fafaf8", fontFamily:"'DM Sans',sans-serif", fontSize:"0.95rem", color:"#1a2e1a", outline:"none", boxSizing:"border-box", transition:"border-color 0.2s, box-shadow 0.2s" },
-  finputIcon:{ position:"absolute", left:"0.95rem", top:"50%", transform:"translateY(-50%)", fontSize:"1.05rem", opacity:0.45, pointerEvents:"none" },
-  passToggle:{ position:"absolute", right:"0.75rem", top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", fontSize:"0.8rem", color:"#6b7a6b", fontFamily:"'DM Sans',sans-serif", padding:"0.25rem" },
-  loginBtn:(admin)=>({ width:"100%", padding:"1rem", marginTop:"0.5rem", background:admin?"linear-gradient(135deg,#c9a227,#9a7b0a)":"linear-gradient(135deg,#3a7d44,#1f4d24)", color:"white", border:"none", borderRadius:12, fontFamily:"'DM Sans',sans-serif", fontSize:"1rem", fontWeight:600, cursor:"pointer", boxShadow:admin?"0 8px 24px rgba(154,123,10,0.35)":"0 8px 24px rgba(58,125,68,0.35)", transition:"transform 0.15s, box-shadow 0.15s" }),
-  card:{ background:"#fefcf7", borderRadius:24, padding:"2.5rem", boxShadow:"0 20px 60px rgba(45,90,39,0.12)", border:"1px solid rgba(58,125,68,0.1)" },
-  // topbar
-  topbar:{ background:"#fefcf7", borderBottom:"1px solid rgba(58,125,68,0.12)", padding:"0 1.5rem", height:64, display:"flex", alignItems:"center", justifycontent:"space-between", position:"sticky", top:0, zIndex:100, boxShadow:"0 2px 12px rgba(45,90,39,0.12)" },
-  topBrand:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.35rem", color:"#2d5a27", display:"flex", alignItems:"center", gap:"0.5rem" },
-  topRight:{ display:"flex", alignItems:"center", gap:"1rem" },
-  ubadge:{ display:"flex", alignItems:"center", gap:"0.6rem", background:"#f0faf0", border:"1px solid rgba(58,125,68,0.15)", borderRadius:100, padding:"0.3rem 1rem 0.3rem 0.4rem" },
-  uavatar:(color)=>({ width:32, height:32, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", color:"white", fontWeight:700, fontSize:"0.8rem", background:color||"linear-gradient(135deg,#3a7d44,#1a3d1a)", flexShrink:0 }),
-  uname:{ fontSize:"0.88rem", fontWeight:500, color:"#2d5a27" },
-  urole:(admin)=>({ fontSize:"0.7rem", fontWeight:600, padding:"2px 8px", borderRadius:100, textTransform:"uppercase", letterSpacing:"0.5px", background:admin?"#fff3cd":"#d4f0d4", color:admin?"#856404":"#2d5a27" }),
-  logoutBtn:{ background:"none", border:"1.5px solid rgba(58,125,68,0.2)", borderRadius:10, padding:"0.45rem 1rem", fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", color:"#6b7a6b", cursor:"pointer" },
-  // sidebar
-  sidebar:{ width:220, background:"#fefcf7", borderRight:"1px solid rgba(58,125,68,0.1)", padding:"1.25rem 0.75rem", flexShrink:0 },
-  slabel:{ fontSize:"0.68rem", fontWeight:700, textTransform:"uppercase", letterSpacing:"1.2px", color:"#b0bab0", margin:"1rem 0.5rem 0.4rem" },
-  nbtn:(active)=>({ display:"flex", alignItems:"center", gap:"0.7rem", width:"100%", padding:"0.65rem 0.8rem", border:"none", borderRadius:12, background:active?"#d4f0d4":"transparent", fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", color:active?"#2d5a27":"#5a6a5a", cursor:"pointer", textAlign:"left", fontWeight:active?600:400 }),
-  nbadge:{ marginLeft:"auto", background:"#3a7d44", color:"white", borderRadius:100, fontSize:"0.70rem", fontWeight:700, padding:"1px 7px" },
-  // content
-  content:{ flex:1, padding:"2rem", overflowY:"auto" },
-  pageTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.6rem", color:"#2d5a27", marginBottom:"1.5rem", display:"flex", alignItems:"center", justifyContent:"space-between" },
-  scard:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.75rem", boxShadow:"0 4px 20px rgba(45,90,39,0.12)", marginBottom:"1.5rem" },
-  scardTitle:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.25rem", color:"#2d5a27", marginBottom:"1.25rem" },
-  // welcome
-  welcome:{ background:"linear-gradient(135deg,#3a7d44 0%,#2d5a27 60%,#1a3d1a 100%)", borderRadius:20, padding:"2rem 2.5rem", color:"white", marginBottom:"1.5rem" },
-  wh2:{ fontFamily:"'DM Serif Display',serif", fontSize:"1.8rem", margin:"0 0 0.3rem" },
-  wp:{ opacity:0.85, fontSize:"0.9rem", margin:0 },
-  // stat grid
-  statGrid:{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:"1rem", marginBottom:"1.5rem" },
-  statCard:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:16, padding:"1.25rem 1.5rem", boxShadow:"0 2px 12px rgba(45,90,39,0.12)" },
-  statLabel:{ fontSize:"0.75rem", color:"#8a9a8a", textTransform:"uppercase", letterSpacing:"0.8px", fontWeight:600 },
-  statValue:{ fontSize:"2rem", fontWeight:600, color:"#2d5a27", marginTop:"0.2rem", lineHeight:1 },
-  statSub:{ fontSize:"0.78rem", color:"#8a9a8a", marginTop:"0.25rem" },
-  // buttons
-  btn:(type)=>{
-    const base={ display:"inline-flex", alignItems:"center", gap:"0.4rem", padding:"0.55rem 1.1rem", borderRadius:10, fontFamily:"'DM Sans',sans-serif", fontSize:"0.85rem", fontWeight:500, cursor:"pointer", border:"none" };
-    if(type==="primary") return {...base, background:"linear-gradient(135deg,#3a7d44,#2d5a27)", color:"white", boxShadow:"0 3px 12px rgba(58,125,68,0.3)"};
-    if(type==="outline") return {...base, background:"transparent", border:"1.5px solid rgba(58,125,68,0.25)", color:"#2d5a27"};
-    if(type==="danger")  return {...base, background:"#fee", border:"1.5px solid #fca5a5", color:"#dc2626"};
-    return base;
-  },
-  btnSm:{ padding:"0.3rem 0.75rem", fontSize:"0.78rem" },
-  // form
-  addForm:{ background:"#f0faf0", border:"1.5px dashed rgba(58,125,68,0.3)", borderRadius:16, padding:"1.5rem", marginBottom:"1.5rem" },
-  formRow:{ display:"grid", gap:"1rem", marginBottom:"1rem" },
-  inp:{ width:"100%", padding:"0.65rem 0.9rem", border:"1.5px solid rgba(58,125,68,0.15)", borderRadius:10, fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", background:"white", outline:"none", boxSizing:"border-box" },
-  // table
-  tblWrap:{ overflowX:"auto", borderRadius:14, border:"1px solid rgba(58,125,68,0.1)" },
-  th:{ padding:"0.85rem 1rem", fontSize:"0.75rem", fontWeight:700, textTransform:"uppercase", letterSpacing:"0.8px", color:"#2d5a27", textAlign:"left", borderBottom:"1px solid rgba(58,125,68,0.1)", background:"#f0faf0" },
-  td:{ padding:"0.85rem 1rem", fontSize:"0.88rem", borderBottom:"1px solid rgba(58,125,68,0.06)", color:"#3a3a3a" },
-  // badge
-  badge:(type)=>{
-    const base={ display:"inline-block", padding:"3px 10px", borderRadius:100, fontSize:"0.73rem", fontWeight:600 };
-    if(type==="green")  return {...base, background:"#d4f0d4", color:"#2d5a27"};
-    if(type==="orange") return {...base, background:"#fff3cd", color:"#856404"};
-    if(type==="red")    return {...base, background:"#fee",    color:"#dc2626"};
-    if(type==="blue")   return {...base, background:"#e0f0ff", color:"#1a5fa8"};
-    return                     {...base, background:"#f0f0f0", color:"#6b7a6b"};
-  },
-  tpill:{ background:"#d4f0d4", color:"#2d5a27", borderRadius:100, padding:"3px 10px", fontSize:"0.82rem", fontWeight:600 },
-  // task card
-  tcard:(pri,done)=>({ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:`4px solid ${pri==="high"?"#dc2626":pri==="medium"?"#f59e0b":"#3a7d44"}`, borderRadius:16, padding:"1.25rem", boxShadow:"0 2px 10px rgba(45,90,39,0.12)", opacity:done?0.55:1 }),
-  // chat
-  chatLayout:{ display:"grid", gridTemplateColumns:"230px 1fr", gap:"1.5rem", height:"calc(100vh - 130px)" },
-  chatUsers:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.25rem", overflowY:"auto" },
-  chatUser:(active)=>({ display:"flex", alignItems:"center", gap:"0.7rem", padding:"0.7rem 0.75rem", borderRadius:12, cursor:"pointer", background:active?"#d4f0d4":"transparent", marginBottom:2 }),
-  chatMain:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderRadius:20, padding:"1.5rem", display:"flex", flexDirection:"column", overflow:"hidden" },
-  chatMsgs:{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:"0.85rem", padding:"0.5rem 0", minHeight:0 },
-  mrow:(mine)=>({ display:"flex", alignItems:"flex-end", gap:"0.5rem", flexDirection:mine?"row-reverse":"row" }),
-  mbubble:(mine)=>({ maxWidth:"68%", padding:"0.65rem 0.95rem", borderRadius:16, fontSize:"0.88rem", lineHeight:1.5, background:mine?"linear-gradient(135deg,#3a7d44,#2d5a27)":"#f0faf0", color:mine?"white":"#2a2a2a", borderBottomRightRadius:mine?4:16, borderBottomLeftRadius:mine?16:4 }),
-  mtime:{ fontSize:"0.68rem", color:"#b0bab0", marginTop:2 },
-  cinputWrap:{ display:"flex", gap:"0.75rem", alignItems:"flex-end", borderTop:"1px solid rgba(58,125,68,0.1)", paddingTop:"1rem", marginTop:"0.75rem" },
-  cinput:{ flex:1, padding:"0.7rem 1rem", border:"1.5px solid rgba(58,125,68,0.15)", borderRadius:14, fontFamily:"'DM Sans',sans-serif", fontSize:"0.88rem", resize:"none", outline:"none", background:"#f7f3ec", maxHeight:100, boxSizing:"border-box" },
-  sendBtn:{ width:44, height:44, borderRadius:12, background:"linear-gradient(135deg,#3a7d44,#2d5a27)", border:"none", color:"white", cursor:"pointer", fontSize:"1.1rem", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 },
-  // announcement
-  ann:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:"4px solid #3a7d44", borderRadius:14, padding:"1.25rem 1.5rem", marginBottom:"0.75rem" },
-  meeting:{ background:"#fefcf7", border:"1px solid rgba(58,125,68,0.1)", borderLeft:"4px solid #1a5fa8", borderRadius:14, padding:"1.25rem 1.5rem", marginBottom:"0.75rem" },
-  // modal
-  modalBg:{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", zIndex:500, display:"flex", alignItems:"center", justifyContent:"center", padding:"1rem" },
-  modal:{ background:"#fefcf7", borderRadius:20, padding:"2rem", width:"100%", maxWidth:480, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" },
-  // notif
-  notif:{ position:"fixed", bottom:"2rem", right:"2rem", background:"#2d5a27", color:"white", padding:"0.85rem 1.4rem", borderRadius:14, fontSize:"0.88rem", fontWeight:500, zIndex:9998, boxShadow:"0 8px 24px rgba(0,0,0,0.2)" },
-  empty:{ textAlign:"center", padding:"2.5rem 1rem", color:"#8a9a8a" },
-};
+// ── DESIGN ───────────────────────────────────────────
+const G="#3a7d44",ST="#2d5a27",SA="#f5f2ea",CR="#fefdf8",G50="#eef7ee",G100="#d0edce",SH="rgba(45,90,39,0.13)";
 
-// ── SMALL COMPONENTS ─────────────────────────────────
-function Avatar({initials, color, size=32}){
-  return <div style={{...S.uavatar(null), width:size, height:size, fontSize:size*0.28, background:`linear-gradient(135deg,${color},#1a3d1a)`}}>{initials}</div>;
+function av(color,size){
+  size=size||32;
+  return{width:size,height:size,borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",
+    color:"white",fontWeight:700,fontSize:Math.round(size*0.3),
+    background:"linear-gradient(135deg,"+color+",#1a3d1a)",flexShrink:0};
 }
-
-function Badge({type, children}){
-  return <span style={S.badge(type)}>{children}</span>;
+function bdg(t){
+  var b={display:"inline-block",padding:"3px 10px",borderRadius:100,fontSize:"0.73rem",fontWeight:600};
+  return t==="green"?Object.assign({},b,{background:G100,color:ST}):
+    t==="orange"?Object.assign({},b,{background:"#fff3cd",color:"#856404"}):
+    t==="red"?Object.assign({},b,{background:"#fee2e2",color:"#dc2626"}):
+    t==="blue"?Object.assign({},b,{background:"#dbeafe",color:"#1d4ed8"}):
+    Object.assign({},b,{background:"#f3f4f6",color:"#6b7280"});
 }
-
-function Btn({type="primary", sm, onClick, children, style={}}){
-  return <button style={{...S.btn(type), ...(sm?S.btnSm:{}), ...style}} onClick={onClick}>{children}</button>;
+function bst(t){
+  var b={display:"inline-flex",alignItems:"center",gap:"0.4rem",padding:"0.55rem 1.15rem",borderRadius:11,
+    fontFamily:"'DM Sans',sans-serif",fontSize:"0.85rem",fontWeight:600,cursor:"pointer",border:"none",transition:"all 0.18s"};
+  return t==="outline"?Object.assign({},b,{background:"transparent",border:"1.5px solid rgba(58,125,68,0.28)",color:ST}):
+    t==="danger"?Object.assign({},b,{background:"#fee2e2",border:"1.5px solid #fca5a5",color:"#dc2626"}):
+    Object.assign({},b,{background:"linear-gradient(135deg,"+G+","+ST+")",color:"white",boxShadow:"0 3px 14px rgba(58,125,68,0.32)"});
 }
+const BSM={padding:"0.28rem 0.7rem",fontSize:"0.77rem"};
+const INP={width:"100%",padding:"0.68rem 0.95rem",border:"1.5px solid rgba(58,125,68,0.18)",borderRadius:11,
+  fontFamily:"'DM Sans',sans-serif",fontSize:"0.88rem",background:"white",outline:"none",boxSizing:"border-box",color:"#2a2a2a"};
+const SCARD={background:CR,border:"1px solid rgba(58,125,68,0.09)",borderRadius:22,padding:"1.75rem",
+  boxShadow:"0 2px 8px "+SH+", 0 8px 32px rgba(45,90,39,0.07)",marginBottom:"1.5rem"};
+const SCARDTIT={fontFamily:"'DM Serif Display',serif",fontSize:"1.25rem",color:ST,marginBottom:"1.25rem"};
+const PAGETIT={fontFamily:"'DM Serif Display',serif",fontSize:"1.6rem",color:ST,marginBottom:"1.5rem",
+  display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"0.5rem"};
+const TPILL={background:G100,color:ST,borderRadius:100,padding:"3px 10px",fontSize:"0.82rem",fontWeight:600,display:"inline-block"};
+const TH={padding:"0.85rem 1rem",fontSize:"0.73rem",fontWeight:700,textTransform:"uppercase",
+  letterSpacing:"0.9px",color:ST,textAlign:"left",borderBottom:"1px solid rgba(58,125,68,0.1)",
+  background:G50,whiteSpace:"nowrap"};
+const TD={padding:"0.85rem 1rem",fontSize:"0.88rem",borderBottom:"1px solid rgba(58,125,68,0.06)",
+  color:"#3a3a3a",verticalAlign:"middle"};
+const EMPTY={textAlign:"center",padding:"2.5rem 1rem",color:"#8a9a8a"};
+const ADDFORM={background:G50,border:"1.5px dashed rgba(58,125,68,0.3)",borderRadius:16,padding:"1.5rem",marginBottom:"1.5rem"};
+const MODOBG={position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:500,display:"flex",
+  alignItems:"center",justifyContent:"center",padding:"1rem",backdropFilter:"blur(3px)"};
+const MODO={background:CR,borderRadius:24,padding:"2rem",width:"100%",maxWidth:480,boxShadow:"0 24px 80px rgba(0,0,0,0.22)"};
 
-function Inp({value, onChange, placeholder, type="text", id}){
-  return <input id={id} style={S.inp} value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type} />;
+// ── MINI KOMPONENTY ───────────────────────────────────
+function Av({ini,color,size}){return h("div",{style:av(color,size)},ini);}
+function Bdg({t,children}){return h("span",{style:bdg(t)},children);}
+function Btn({t,sm,onClick,children,style:ex}){
+  return h("button",{style:Object.assign({},bst(t),sm?BSM:{},ex||{}),onClick:onClick},children);
 }
-
-function Sel({value, onChange, options}){
-  return <select style={S.inp} value={value} onChange={e=>onChange(e.target.value)}>
-    {options.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
-  </select>;
+function Inp({val,set,ph,tp}){
+  return h("input",{style:INP,value:val,onChange:function(e){set(e.target.value);},placeholder:ph,type:tp||"text"});
 }
-
-function Modal({open, onClose, title, children}){
-  if(!open) return null;
-  return <div style={S.modalBg} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
-    <div style={S.modal}>
-      <div style={{fontFamily:"'DM Serif Display',serif", fontSize:"1.3rem", color:"#2d5a27", marginBottom:"1.25rem"}}>{title}</div>
-      {children}
-    </div>
-  </div>;
+function Sel({val,set,opts}){
+  return h("select",{style:INP,value:val,onChange:function(e){set(e.target.value);}},
+    opts.map(function(o){return h("option",{key:o.v,value:o.v},o.l);}));
 }
-
+function Modal({open,onClose,title,children}){
+  if(!open)return null;
+  return h("div",{style:MODOBG,onClick:function(e){if(e.target===e.currentTarget)onClose();}},
+    h("div",{style:MODO},
+      h("div",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"1.3rem",color:ST,marginBottom:"1.25rem"}},title),
+      children));
+}
 function Notif({msg}){
-  if(!msg) return null;
-  return <div style={S.notif}>{msg}</div>;
+  if(!msg)return null;
+  return h("div",{style:{position:"fixed",bottom:"2rem",right:"2rem",background:ST,color:"white",
+    padding:"0.9rem 1.5rem",borderRadius:14,fontSize:"0.88rem",fontWeight:500,zIndex:9998,
+    boxShadow:"0 8px 28px rgba(0,0,0,0.22)",display:"flex",alignItems:"center",gap:"0.5rem"}},msg);
+}
+function Spinner(){
+  return h("div",{style:{position:"fixed",inset:0,background:"rgba(240,237,230,0.85)",display:"flex",
+    flexDirection:"column",alignItems:"center",justifyContent:"center",zIndex:9999,gap:"1rem"}},
+    h("div",{style:{fontSize:"3rem"}},"🌿"),
+    h("div",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"1.2rem",color:ST}},"Načítání dat…"),
+    h("div",{style:{width:40,height:40,border:"3px solid "+G100,borderTop:"3px solid "+G,
+      borderRadius:"50%",animation:"spin 0.8s linear infinite"}}));
 }
 
-function LoginScreen({selRole,setSelRole,loginUser,setLoginUser,loginPass,setLoginPass,loginErr,setLoginErr,doLogin,users,fbOnline,fbReady}){
-  const [showPass,setShowPass]=useState(false);
-  const isAdm = selRole==="admin";
-  const roleUsers = Object.entries(users).filter(([,u])=>isAdm?u.role==="admin"&&u.active:u.role!=="admin"&&u.active);
-  return (
-    <div style={S.loginPage}>
-      <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
-      <div style={S.loginHero}>
-        <div style={{...S.loginHeroOrb(1),width:320,height:320,top:-80,right:-60}}/>
-        <div style={{...S.loginHeroOrb(2),width:200,height:200,bottom:40,left:-40}}/>
-        <div style={{fontSize:"3rem",marginBottom:"0.75rem",position:"relative",zIndex:1}}>🌿</div>
-        <h1 style={S.loginHeroTitle}>Zahradní systém</h1>
-        <p style={S.loginHeroText}>Vše běží na webu v cloudu – úpravy z domácího PC se automaticky zobrazí i na stránce na jiném počítači.</p>
-        <p style={{...S.loginHeroText,marginTop:"0.75rem",fontSize:"0.88rem",opacity:0.75}}>
-          {fbReady&&fbOnline?"✅ Cloud připojen – synchronizace aktivní":"⏳ Připojuji cloud…"}
-        </p>
-        <div style={S.loginHeroFeat}>
-          {["📋 Úkoly a plánování","💬 Interní zprávy","📅 Evidence docházky"].map(t=>(
-            <div key={t} style={S.loginHeroFeatItem}><span style={{width:8,height:8,borderRadius:"50%",background:"rgba(255,255,255,0.7)",flexShrink:0}}/>{t}</div>
-          ))}
-        </div>
-      </div>
-      <div style={S.loginPanel}>
-        <div style={S.loginFormWrap}>
-          <div style={S.loginFormHead}>
-            <h2 style={S.loginFormTitle}>{isAdm?"Přihlášení administrátora":"Přihlášení zaměstnance"}</h2>
-            <p style={S.loginFormSub}>Zadejte své přihlašovací údaje</p>
-          </div>
-          <div style={S.loginCard}>
-            <div style={S.roleTabs}>
-              <button type="button" style={S.rtab(selRole==="admin",true)} onClick={()=>{setSelRole("admin");setLoginErr("");}}>👑 Administrátor</button>
-              <button type="button" style={S.rtab(selRole==="employee",false)} onClick={()=>{setSelRole("employee");setLoginErr("");}}>🌱 Zaměstnanec</button>
-            </div>
-            {loginErr && <div style={S.err}>⚠️ {loginErr}</div>}
-            <div style={S.fgroup}>
-              <label style={S.flabel}>Uživatelské jméno</label>
-              <div style={S.finputWrap}>
-                <span style={S.finputIcon}>👤</span>
-                <input style={S.finput} list="user-suggest" value={loginUser} onChange={e=>setLoginUser(e.target.value)}
-                  placeholder={isAdm?"např. adam":"např. laura"} autoComplete="username"
-                  onKeyDown={e=>e.key==="Enter"&&doLogin()}
-                  onFocus={e=>{e.target.style.borderColor="#3a7d44";e.target.style.boxShadow="0 0 0 3px rgba(58,125,68,0.15)";}}
-                  onBlur={e=>{e.target.style.borderColor="#e2e8e0";e.target.style.boxShadow="none";}}/>
-                <datalist id="user-suggest">
-                  {roleUsers.map(([login])=><option key={login} value={login}/>)}
-                </datalist>
-              </div>
-            </div>
-            <div style={S.fgroup}>
-              <label style={S.flabel}>Heslo</label>
-              <div style={S.finputWrap}>
-                <span style={S.finputIcon}>🔒</span>
-                <input style={{...S.finput,paddingRight:"4.5rem"}} type={showPass?"text":"password"} value={loginPass}
-                  onChange={e=>setLoginPass(e.target.value)} placeholder="••••••••" autoComplete="current-password"
-                  onKeyDown={e=>e.key==="Enter"&&doLogin()}
-                  onFocus={e=>{e.target.style.borderColor="#3a7d44";e.target.style.boxShadow="0 0 0 3px rgba(58,125,68,0.15)";}}
-                  onBlur={e=>{e.target.style.borderColor="#e2e8e0";e.target.style.boxShadow="none";}}/>
-                <button type="button" style={S.passToggle} onClick={()=>setShowPass(s=>!s)}>{showPass?"Skrýt":"Zobrazit"}</button>
-              </div>
-            </div>
-            <button type="button" style={S.loginBtn(isAdm)} onClick={doLogin}
-              onMouseOver={e=>{e.currentTarget.style.transform="translateY(-1px)";}}
-              onMouseOut={e=>{e.currentTarget.style.transform="none";}}>
-              Přihlásit se →
-            </button>
-            <p style={{marginTop:"1.25rem",fontSize:"0.72rem",color:"#a0aea0",textAlign:"center",lineHeight:1.55}}>
-              Používejte stejnou webovou adresu na všech PC<br/>
-              (např. vase-domena.cz/index.html)
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── MAIN APP ─────────────────────────────────────────
+// ── HLAVNÍ APP ────────────────────────────────────────
 function App(){
-  // auth
-  const [cu, setCu] = useState(null);
-  const [selRole, setSelRole] = useState("admin");
-  const [loginUser, setLoginUser] = useState("");
-  const [loginPass, setLoginPass] = useState("");
-  const [loginErr, setLoginErr] = useState("");
-  const [fbReady, setFbReady] = useState(false);
-  const [fbOnline, setFbOnline] = useState(!!window.db);
-  const [syncStatus, setSyncStatus] = useState(window.db?"loading":"offline");
-  const [lastSync, setLastSync] = useState("");
-  const [syncErr, setSyncErr] = useState("");
+  var _useState=useState(null),cu=_useState[0],setCu=_useState[1];
+  var _useState2=useState("admin"),role=_useState2[0],setRole=_useState2[1];
+  var _useState3=useState(""),lu=_useState3[0],setLu=_useState3[1];
+  var _useState4=useState(""),lp=_useState4[0],setLp=_useState4[1];
+  var _useState5=useState(""),lerr=_useState5[0],setLerr=_useState5[1];
+  var _useState6=useState(true),loading=_useState6[0],setLoading=_useState6[1];
 
-  function onSyncEvent(st,msg){
-    if(st==="saving") setSyncStatus("saving");
-    else if(st==="saved"){
-      setSyncStatus("ok");
-      setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
-      setSyncErr("");
-      setFbOnline(true);
-    }
-    else if(st==="error"){
-      setSyncStatus("error");
-      setSyncErr(msg||"Chyba");
-      setFbOnline(false);
-      notify("⚠️ Nepodařilo se uložit do cloudu");
-    }
+  var _useState7=useState(DEF_USERS),users=_useState7[0],setUsers=_useState7[1];
+  var _useState8=useState(DEF_PW),pws=_useState8[0],setPws=_useState8[1];
+  var _useState9=useState({}),msgs=_useState9[0],setMsgs=_useState9[1];
+  var _useState10=useState([]),tasks=_useState10[0],setTasks=_useState10[1];
+  var _useState11=useState([]),att=_useState11[0],setAtt=_useState11[1];
+  var _useState12=useState([]),anns=_useState12[0],setAnns=_useState12[1];
+  var _useState13=useState([]),meets=_useState13[0],setMeets=_useState13[1];
+
+  var _useState14=useState("dashboard"),page=_useState14[0],setPage=_useState14[1];
+  var _useState15=useState(null),chat=_useState15[0],setChat=_useState15[1];
+  var _useState16=useState(""),notif=_useState16[0],setNotif=_useState16[1];
+  var _useState17=useState(false),inok=_useState17[0],setInok=_useState17[1];
+  var ntRef=useRef();
+  var unsubRef=useRef([]);
+
+  function notify(msg){
+    setNotif(msg);
+    clearTimeout(ntRef.current);
+    ntRef.current=setTimeout(function(){setNotif("");},3200);
   }
 
-  // data
-  const [users, setUsers] = useState(INIT_USERS);
-  const [passwords, setPasswords] = useState(INIT_PASSWORDS);
-  const [msgs, setMsgs] = useState(INIT_MESSAGES);
-  const [tasks, setTasks] = useState(INIT_TASKS);
-  const [attendance, setAttendance] = useState(INIT_ATTENDANCE);
-  const [announcements, setAnnouncements] = useState(INIT_ANNOUNCEMENTS);
-  const [meetings, setMeetings] = useState(INIT_MEETINGS);
+  useEffect(function(){
+    if(!fbReady){setLoading(false);return;}
+    var unsubs=[];
 
-  // nav
-  const [page, setPage] = useState("dashboard");
-  const [selChat, setSelChat] = useState(null);
-  const [notif, setNotif] = useState("");
-  const notifRef = useRef();
+    unsubs.push(fsListen("users",function(docs){
+      if(Object.keys(docs).length>0){
+        setUsers(docs);
+      } else {
+        Object.entries(DEF_USERS).forEach(function(e){fsSet("users",e[0],e[1]);});
+      }
+    }));
 
-  // checkin
-  const [checkedIn, setCheckedIn] = useState(false);
+    unsubs.push(fsListen("passwords",function(docs){
+      if(Object.keys(docs).length>0){
+        var pwMap={};
+        Object.entries(docs).forEach(function(e){pwMap[e[0]]=e[1].pw;});
+        setPws(pwMap);
+      } else {
+        Object.entries(DEF_PW).forEach(function(e){fsSet("passwords",e[0],{pw:e[1]});});
+      }
+    }));
 
-  /* Firebase – data v cloudu, stejná na všech PC a na webu */
-  useEffect(()=>{
-    if(!window.db){
-      setFbReady(true);
-      setSyncStatus("offline");
-      return;
-    }
-    const db=window.db;
-    const seeds=[
-      ["users",INIT_USERS],["passwords",INIT_PASSWORDS],["msgs",INIT_MESSAGES],
-      ["tasks",INIT_TASKS],["attendance",INIT_ATTENDANCE],
-      ["announcements",INIT_ANNOUNCEMENTS],["meetings",INIT_MEETINGS],
-    ];
-    const setters={users:setUsers,passwords:setPasswords,msgs:setMsgs,tasks:setTasks,
-                  attendance:setAttendance,announcements:setAnnouncements,meetings:setMeetings};
-    
-    let loaded=0;
-    const unsubs=seeds.map(([name,fallback])=>
-      db.collection("app").doc(name).onSnapshot(function(doc){
-        if(doc.exists){
-          let data=doc.data();
-          if(name==="attendance") data=normalizeAttendance(data,INIT_USERS);
-          if(name==="tasks") data=normalizeTasks(data);
-          if(name==="announcements"||name==="meetings") data=asArray(data);
-          setters[name](data);
-        }else{
-          window.cloudSave(name,fallback);
-        }
-        loaded++;
-        if(loaded>=seeds.length){
-          setFbReady(true);
-          setFbOnline(true);
-          setSyncStatus("ok");
-          setLastSync(new Date().toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit",second:"2-digit"}));
-        }
-      }, function(err){
-        console.warn("Firestore listen err:", name, err);
-      })
-    );
-    return ()=>unsubs.forEach(fn=>fn());
+    unsubs.push(fsListenArr("tasks","createdAt",function(arr){setTasks(arr);}));
+    unsubs.push(fsListenArr("attendance","date",function(arr){setAtt(arr.slice().reverse());}));
+    unsubs.push(fsListenArr("announcements","createdAt",function(arr){setAnns(arr.slice().reverse());}));
+    unsubs.push(fsListenArr("meetings","date",function(arr){setMeets(arr);}));
+
+    unsubs.push(fsListen("messages",function(docs){
+      var msgMap={};
+      Object.entries(docs).forEach(function(e){msgMap[e[0]]=e[1].msgs||[];});
+      setMsgs(msgMap);
+    }));
+
+    unsubRef.current=unsubs;
+    setTimeout(function(){setLoading(false);},1000);
+    return function(){unsubRef.current.forEach(function(u){if(u)u();});};
   },[]);
 
-  // updaters
-  const setUsersCloud        = makeUpdater(setUsers,"users",onSyncEvent);
-  const setPasswordsCloud    = makeUpdater(setPasswords,"passwords",onSyncEvent);
-  const setMsgsCloud         = makeUpdater(setMsgs,"msgs",onSyncEvent);
-  const setTasksCloud        = makeUpdater(setTasks,"tasks",onSyncEvent);
-  const setAttendanceCloud   = makeUpdater(setAttendance,"attendance",onSyncEvent);
-  const setAnnouncementsCloud= makeUpdater(setAnnouncements,"announcements",onSyncEvent);
-  const setMeetingsCloud     = makeUpdater(setMeetings,"meetings",onSyncEvent);
-
-  function notify(m){
-    setNotif(m);
-    clearTimeout(notifRef.current);
-    notifRef.current=setTimeout(()=>setNotif(""),3500);
+  function login(){
+    var u=lu.trim().toLowerCase(),p=lp;
+    if(!pws[u]||pws[u]!==p){setLerr("Nesprávné přihlašovací údaje.");return;}
+    var ud=users[u];
+    if(!ud||!ud.active){setLerr("Účet je deaktivován.");return;}
+    if(role==="admin"&&ud.role!=="admin"){setLerr("Tento účet nemá admin přístup.");return;}
+    if(role==="employee"&&ud.role==="admin"){setLerr("Admin se přihlašuje přes záložku Administrátor.");return;}
+    setLerr("");setCu(Object.assign({login:u},ud));setPage("dashboard");
   }
 
-  // auth action
-  function doLogin(){
-    const login=loginUser.toLowerCase().trim();
-    if(!login){ setLoginErr("Zadejte jméno."); return; }
-    const found=users[login];
-    if(!found||!found.active){ setLoginErr("Uživatel neexistuje."); return; }
-    if(selRole==="admin" && found.role!=="admin"){ setLoginErr("Tento účet nemá admin práva. Přepněte se na Zaměstnance."); return; }
-    if(selRole==="employee" && found.role==="admin"){ setLoginErr("Admin se musí přihlásit pod kartou Administrátor."); return; }
-    
-    if(passwords[login]!==loginPass){
-      setLoginErr("Nesprávné heslo.");
-      return;
-    }
-    setCu({login,...found});
-    setLoginErr("");
-    setLoginPass("");
-    
-    // auto select first chat
-    const opp=ORDER.find(k=>k!==login&&users[k]&&users[k].active);
-    setSelChat(opp||null);
+  function logout(){setCu(null);setChat(null);setInok(false);setLu("");setLp("");setLerr("");}
 
-    // check if today is checkedIn
-    const recs=getUserRecords(attendance,login);
-    if(recs.length>0 && recs[0].date===nowDate() && !recs[0].out){
-      setCheckedIn(true);
-    }else{
-      setCheckedIn(false);
-    }
-    notify(`Vítejte, ${found.name} 👋`);
-  }
+  var contacts=cu?Object.entries(users).filter(function(e){return e[0]!==cu.login&&users[e[0]].active;}).map(function(e){return Object.assign({login:e[0]},e[1]);}):[];
+  var unread=cu?contacts.filter(function(c){return(msgs[ckey(cu.login,c.login)]||[]).some(function(m){return m.from!==cu.login;});}).length:0;
 
-  function handleLogout(){
-    setCu(null);
-    setLoginUser("");
-    setLoginPass("");
-    setPage("dashboard");
-  }
-
-  // attendance action
-  function toggleCheckIn(){
-    const today=nowDate();
-    const time=nowTime();
-    let recs=[...getUserRecords(attendance,cu.login)];
-
-    if(!checkedIn){
-      // Příchod
-      let status="ok";
-      if(cu.shift && cu.shift.includes("–")){
-        const startStr=cu.shift.split("–")[0].trim();
-        if(startStr.includes(":")){
-          const [sh,sm]=startStr.split(":").map(Number);
-          const [th,tm]=time.split(":").map(Number);
-          if((th*60+tm) > (sh*60+sm + 15)) status="late"; // 15 min tolerance
-        }
-      }
-      recs.unshift({date:today, in:time, out:"", status});
-      setCheckedIn(true);
-      notify("🟢 Příchod zaznamenán");
-    }else{
-      // Odchod
-      if(recs.length>0 && recs[0].date===today && !recs[0].out){
-        recs[0].out=time;
-      }else if(recs.length>0 && !recs[0].out){
-        recs[0].out=time; 
-      }else{
-        recs.unshift({date:today, in:"", out:time, status:"ok"});
-      }
-      setCheckedIn(false);
-      notify("🔴 Odchod zaznamenán");
-    }
-    setAttendanceCloud(setUserRecords(attendance,cu.login,recs));
-  }
-
-  // task actions
-  const [tName,setTName]=useState("");
-  const [tWho,setTWho]=useState("Všichni");
-  const [tPri,setTPri]=useState("medium");
-  const [tDate,setTDate]=useState(nowDate());
-  const [tDesc,setTDesc]=useState("");
-  function addTask(){
-    if(!tName.trim()) return;
-    const n={id:Date.now(), name:tName.trim(), who:tWho, pri:tPri, date:tDate, done:false, desc:tDesc.trim()};
-    setTasksCloud([...tasks,n]);
-    setTName("");setTDesc("");
-    notify("📋 Úkol byl přidán");
-  }
-  function toggleTask(id){
-    setTasksCloud(tasks.map(t=>t.id===id?{...t,done:!t.done}:t));
-    notify("Úkol aktualizován");
-  }
-  function deleteTask(id){
-    if(confirm("Smazat tento úkol?")) setTasksCloud(tasks.filter(t=>t.id!==id));
-  }
-
-  // chat actions
-  const [chatTxt,setChatTxt]=useState("");
-  const chatBottomRef = useRef();
-  useEffect(()=>{
-    if(page==="chat") chatBottomRef.current?.scrollIntoView({behavior:"smooth"});
-  },[msgs,page,selChat]);
-
-  function sendChat(){
-    if(!chatTxt.trim()||!selChat) return;
-    const key=chatKey(cu.login,selChat);
-    const arr=[...(msgs[key]||[])];
-    arr.push({from:cu.login, text:chatTxt.trim(), time:nowTime()});
-    setMsgsCloud({...msgs,[key]:arr});
-    setChatTxt("");
-  }
-
-  // announcements
-  const [aTitle,setATitle]=useState("");
-  const [aTxt,setATxt]=useState("");
-  function addAnn(){
-    if(!aTitle.trim()||!aTxt.trim()) return;
-    const n={id:Date.now(), author:cu.name, time:new Date().toLocaleString("cs-CZ",{day:"numeric",month:"numeric",year:"numeric",hour:"2-digit",minute:"2-digit"}), title:aTitle.trim(), text:aTxt.trim()};
-    setAnnouncementsCloud([n,...announcements]);
-    setATitle("");setATxt("");
-    notify("📢 Oznámení publikováno");
-  }
-  function delAnn(id){
-    if(confirm("Smazat oznámení?")) setAnnouncementsCloud(announcements.filter(a=>a.id!==id));
-  }
-
-  // meetings
-  const [mTitle,setMTitle]=useState("");
-  const [mDate,setMDate]=useState(nowDate());
-  const [mTime,setMTime]=useState("10:00");
-  const [mPlace,setMPlace]=useState("Kancelář");
-  const [mDesc,setMDesc]=useState("");
-  const [mAtt,setMAtt]=useState("Všichni");
-  function addMeeting(){
-    if(!mTitle.trim()) return;
-    const n={id:Date.now(), title:mTitle.trim(), date:mDate, time:mTime, place:mPlace.trim(), desc:mDesc.trim(), attendees:mAtt};
-    setMeetingsCloud([...meetings,n]);
-    setMTitle("");setMDesc("");
-    notify("📅 Schůzka naplánována");
-  }
-  function delMeeting(id){
-    if(confirm("Smazat schůzku?")) setMeetingsCloud(meetings.filter(m=>m.id!==id));
-  }
-
-  // admin: user management
-  const [addModal,setAddModal]=useState(false);
-  const [nName,setNName]=useState("");
-  const [nLogin,setNLogin]=useState("");
-  const [nPass,setNPass]=useState("");
-  const [nPos,setNPos]=useState("");
-  const [nShift,setNShift]=useState("8:00–16:30");
-  const [nColor,setNColor]=useState("#3a7d44");
-  const [nRole,setNRole]=useState("employee");
-
-  function addUser(){
-    const lg=nLogin.toLowerCase().trim();
-    if(!nName.trim()||!lg||!nPass){ alert("Vyplňte jméno, login a heslo."); return; }
-    if(users[lg]){ alert("Tento login již existuje."); return; }
-    
-    // initials
-    const parts=nName.trim().split(" ");
-    const ini=parts.map(p=>p[0]).join("").toUpperCase().slice(0,2);
-
-    const uNew={name:nName.trim(), role:nRole, initials:ini, pos:nPos.trim(), shift:nShift.trim(), color:nColor, active:true};
-    setUsersCloud({...users,[lg]:uNew});
-    setPasswordsCloud({...passwords,[lg]:nPass});
-    
-    // init empty chat message arrays for this user
-    const updatedMsgs={...msgs};
-    Object.keys(users).forEach(k=>{
-      updatedMsgs[chatKey(lg,k)]=[];
-    });
-    setMsgsCloud(updatedMsgs);
-
-    setNName("");setNLogin("");setNPass("");setNPos("");setAddModal(false);
-    notify("👤 Nový zaměstnanec přidán");
-  }
-
-  const [editModal,setEditModal]=useState(false);
-  const [eKey,setEKey]=useState("");
-  const [eName,setEName]=useState("");
-  const [ePass,setEPass]=useState("");
-  const [ePos,setEPos]=useState("");
-  const [eShift,setEShift]=useState("");
-  const [eColor,setEColor]=useState("");
-  const [eRole,setERole]=useState("");
-
-  function openEdit(k){
-    setEKey(k);
-    setEName(users[k].name);
-    setEPass(passwords[k]||"");
-    setEPos(users[k].pos||"");
-    setEShift(users[k].shift||"");
-    setEColor(users[k].color||"#3a7d44");
-    setERole(users[k].role||"employee");
-    setEditModal(true);
-  }
-
-  function saveEdit(){
-    if(!eName.trim()){ alert("Jméno nesmí být prázdné."); return; }
-    const uOld=users[eKey];
-    const parts=eName.trim().split(" ");
-    const ini=parts.map(p=>p[0]).join("").toUpperCase().slice(0,2);
-
-    const uNew={...uOld, name:eName.trim(), pos:ePos.trim(), shift:eShift.trim(), color:eColor, role:eRole, initials:ini};
-    setUsersCloud({...users,[eKey]:uNew});
-    if(ePass) setPasswordsCloud({...passwords,[eKey]:ePass});
-    setEditModal(false);
-    notify("👤 Údaje zaměstnance změněny");
-  }
-
-  function toggleUserActive(k){
-    if(k==="adam"){ alert("Hlavního administrátora nelze deaktivovat."); return; }
-    const act=!users[k].active;
-    if(!act && confirm(`Opravdu chcete deaktivovat uživatele ${users[k].name}? Nebude se moci přihlásit.`)){
-      setUsersCloud({...users,[k]:{...users[k],active:false}});
-    }else if(act){
-      setUsersCloud({...users,[k]:{...users[k],active:true}});
-    }
-  }
-
-  // unread count helper
-  function getUnreadCount(userKey){
-    return 0; // zjednodušení, pro UI čistotu
-  }
+  if(loading)return h(Spinner);
 
   if(!cu){
-    return <LoginScreen selRole={selRole} setSelRole={setSelRole} loginUser={loginUser} setLoginUser={setLoginUser} loginPass={loginPass} setLoginPass={setLoginPass} loginErr={loginErr} setLoginErr={setLoginErr} doLogin={doLogin} users={users} fbOnline={fbOnline} fbReady={fbReady} />;
+    return h("div",{style:{position:"fixed",inset:0,background:"#edeae2",display:"flex",alignItems:"center",
+      justifyContent:"center",padding:"2rem",zIndex:9999}},
+      !fbReady&&h("div",{style:{position:"fixed",top:"1rem",right:"1rem",background:"#fff3cd",
+        border:"1px solid #f59e0b",borderRadius:10,padding:"0.6rem 1rem",fontSize:"0.82rem",color:"#856404"}},"⚠️ Firebase není dostupný – data se neukládají"),
+      h("div",{style:{width:"100%",maxWidth:440}},
+        h("div",{style:{textAlign:"center",marginBottom:"2.5rem"}},
+          h("div",{style:{fontSize:"4rem",marginBottom:"0.75rem",filter:"drop-shadow(0 4px 12px rgba(58,125,68,0.3))"}},"🌿"),
+          h("h1",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"2.4rem",color:ST,margin:0,letterSpacing:"-0.5px"}},"Zahradní systém"),
+          h("p",{style:{color:"#6b7a6b",fontSize:"0.92rem",margin:"0.4rem 0 0",fontWeight:300}},"Interní portál pro zaměstnance")),
+        h("div",{style:{background:CR,borderRadius:28,padding:"2.75rem",
+          boxShadow:"0 24px 80px rgba(45,90,39,0.18), 0 4px 16px rgba(45,90,39,0.1)",
+          border:"1px solid rgba(58,125,68,0.1)"}},
+          h("div",{style:{display:"flex",background:G50,borderRadius:16,padding:5,gap:5,marginBottom:"2rem"}},
+            ["admin","employee"].map(function(r){
+              return h("button",{key:r,
+                style:{flex:1,padding:"0.7rem",border:"none",borderRadius:12,
+                  background:role===r?CR:"transparent",fontFamily:"'DM Sans',sans-serif",
+                  fontSize:"0.88rem",fontWeight:role===r?600:500,cursor:"pointer",
+                  color:role===r?ST:"#6b7a6b",
+                  boxShadow:role===r?"0 2px 10px "+SH:"none",transition:"all 0.2s"},
+                onClick:function(){setRole(r);setLerr("");}},
+                r==="admin"?"👑 Administrátor":"🌱 Zaměstnanec");
+            })),
+          lerr&&h("div",{style:{background:"#fef2f2",border:"1px solid #fca5a5",color:"#dc2626",
+            borderRadius:12,padding:"0.75rem 1rem",fontSize:"0.88rem",marginBottom:"1.25rem",
+            display:"flex",alignItems:"center",gap:"0.5rem"}},"⚠️ "+lerr),
+          h("div",{style:{marginBottom:"1.25rem"}},
+            h("label",{style:{display:"block",fontSize:"0.75rem",fontWeight:700,color:"#5a6a5a",
+              textTransform:"uppercase",letterSpacing:"1px",marginBottom:"0.5rem"}},"Uživatelské jméno"),
+            h("input",{style:Object.assign({},INP,{padding:"0.9rem 1.1rem",borderRadius:13,background:SA,fontSize:"0.95rem"}),
+              value:lu,onChange:function(e){setLu(e.target.value);},placeholder:"Zadejte uživatelské jméno",autoComplete:"off"})),
+          h("div",{style:{marginBottom:"1.5rem"}},
+            h("label",{style:{display:"block",fontSize:"0.75rem",fontWeight:700,color:"#5a6a5a",
+              textTransform:"uppercase",letterSpacing:"1px",marginBottom:"0.5rem"}},"Heslo"),
+            h("input",{style:Object.assign({},INP,{padding:"0.9rem 1.1rem",borderRadius:13,background:SA,fontSize:"0.95rem"}),
+              type:"password",value:lp,onChange:function(e){setLp(e.target.value);},
+              placeholder:"Zadejte heslo",onKeyDown:function(e){if(e.key==="Enter")login();}})),
+          h("button",{style:{width:"100%",padding:"1rem",
+            background:"linear-gradient(135deg,"+G+" 0%,"+ST+" 100%)",
+            color:"white",border:"none",borderRadius:14,fontSize:"1rem",fontWeight:600,
+            cursor:"pointer",boxShadow:"0 6px 20px rgba(58,125,68,0.4)",letterSpacing:"0.3px"},
+            onClick:login},"Přihlásit se →"))));
   }
 
-  const activeChats=Object.entries(users).filter(([k,u])=>k!==cu.login&&u.active);
+  var nav=[
+    {id:"dashboard",icon:"🏡",label:"Přehled"},
+    {id:"messages",icon:"💬",label:"Zprávy",badge:unread||null},
+    {id:"tasks",icon:"📋",label:"Úkoly"},
+    {id:"attendance",icon:"📅",label:"Docházka"},
+    {id:"announcements",icon:"📢",label:"Oznámení"},
+    {id:"meetings",icon:"🤝",label:"Schůze"},
+  ];
+  if(cu.role==="admin")nav.push({id:"admin",icon:"⚙️",label:"Admin panel"});
 
-  return (
-    <div style={S.app}>
-      {/* VRCHNÍ PANEL */}
-      <div style={S.topbar}>
-        <div style={S.topBrand}><span>🌿</span> Zahradní systém</div>
-        
-        {/* Stav cloudu */}
-        <div style={{fontSize:"0.8rem",display:"flex",alignItems:"center",gap:"0.5rem",background:"#fdfaf2",padding:"4px 12px",borderRadius:8,border:"1px solid rgba(58,125,68,0.1)"}}>
-          {syncStatus==="loading" && <><span style={{width:8,height:8,background:"#f59e0b",borderRadius:"50%"}}/><span>Načítám cloud…</span></>}
-          {syncStatus==="saving" && <><span style={{width:8,height:8,background:"#3b82f6",borderRadius:"50%"}}/><span>Ukládám změny…</span></>}
-          {syncStatus==="ok" && <><span style={{width:8,height:8,background:"#10b981",borderRadius:"50%"}}/><span>Cloud synchronizován <span style={{opacity:0.6}}>({lastSync||"teď"})</span></span></>}
-          {syncStatus==="error" && <><span style={{width:8,height:8,background:"#ef4444",borderRadius:"50%"}}/><span style={{color:"#dc2626"}} title={syncErr}>Chyba spojení</span></>}
-          {syncStatus==="offline" && <><span style={{width:8,height:8,background:"#6b7a6b",borderRadius:"50%"}}/><span>Režim offline</span></>}
-        </div>
+  return h("div",{style:{fontFamily:"'DM Sans',sans-serif",minHeight:"100vh",background:"#edeae2",display:"flex",flexDirection:"column"}},
+    h("div",{style:{background:CR,borderBottom:"1px solid rgba(58,125,68,0.1)",padding:"0 1.5rem",height:66,
+      display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,
+      boxShadow:"0 1px 0 rgba(58,125,68,0.08), 0 4px 24px rgba(45,90,39,0.09)"}},
+      h("div",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"1.4rem",color:ST,display:"flex",alignItems:"center",gap:"0.5rem"}},
+        h("span",{style:{fontSize:"1.5rem"}},"🌿"),"Zahradní systém"),
+      h("div",{style:{display:"flex",alignItems:"center",gap:"1rem"}},
+        h("div",{style:{display:"flex",alignItems:"center",gap:"0.6rem",background:G50,
+          border:"1px solid rgba(58,125,68,0.15)",borderRadius:100,padding:"0.3rem 1.1rem 0.3rem 0.4rem"}},
+          h(Av,{ini:cu.initials,color:cu.color,size:34}),
+          h("span",{style:{fontSize:"0.9rem",fontWeight:600,color:ST}},cu.name.split(" ")[0]),
+          h("span",{style:{fontSize:"0.7rem",fontWeight:600,padding:"2px 9px",borderRadius:100,
+            textTransform:"uppercase",letterSpacing:"0.5px",
+            background:cu.role==="admin"?"#fef3c7":G100,
+            color:cu.role==="admin"?"#92400e":ST}},cu.role==="admin"?"Admin":"Zaměstnanec")),
+        h("button",{style:{background:"none",border:"1.5px solid rgba(58,125,68,0.2)",borderRadius:10,
+          padding:"0.45rem 1rem",fontSize:"0.85rem",color:"#6b7a6b",cursor:"pointer"},onClick:logout},"Odhlásit"))),
+    h("div",{style:{display:"flex",flex:1,minHeight:0}},
+      h("div",{style:{width:225,background:CR,borderRight:"1px solid rgba(58,125,68,0.09)",
+        padding:"1.5rem 0.9rem",flexShrink:0,overflowY:"auto"}},
+        h("div",{style:{fontSize:"0.65rem",fontWeight:700,textTransform:"uppercase",
+          letterSpacing:"1.4px",color:"#c0cab8",margin:"0 0.5rem 0.6rem"}},"Navigace"),
+        nav.map(function(n){
+          return h("button",{key:n.id,
+            style:{display:"flex",alignItems:"center",gap:"0.75rem",width:"100%",
+              padding:"0.7rem 0.9rem",border:"none",borderRadius:13,
+              background:page===n.id?G100:"transparent",
+              fontFamily:"'DM Sans',sans-serif",fontSize:"0.9rem",
+              color:page===n.id?ST:"#5a6a5a",cursor:"pointer",textAlign:"left",
+              fontWeight:page===n.id?600:400,transition:"all 0.15s",marginBottom:2},
+            onClick:function(){setPage(n.id);}},
+            h("span",{style:{fontSize:"1.15rem",lineHeight:1}},n.icon),
+            n.label,
+            n.badge?h("span",{style:{marginLeft:"auto",background:G,color:"white",borderRadius:100,
+              fontSize:"0.7rem",fontWeight:700,padding:"2px 8px",minWidth:22,textAlign:"center"}},n.badge):null);
+        })),
+      h("div",{style:{flex:1,padding:"2rem",overflowY:"auto"}},
+        page==="dashboard"&&h(Dash,{cu:cu,users:users,tasks:tasks,msgs:msgs,contacts:contacts,anns:anns,meets:meets}),
+        page==="messages"&&h(Msgs,{cu:cu,users:users,msgs:msgs,setMsgs:setMsgs,contacts:contacts,chat:chat,setChat:setChat}),
+        page==="tasks"&&h(Tasks,{cu:cu,tasks:tasks,setTasks:setTasks,notify:notify}),
+        page==="attendance"&&h(Att,{cu:cu,att:att,setAtt:setAtt,inok:inok,setInok:setInok,notify:notify}),
+        page==="announcements"&&h(Anns,{cu:cu,anns:anns,setAnns:setAnns,notify:notify}),
+        page==="meetings"&&h(Meets,{cu:cu,meets:meets,setMeets:setMeets,notify:notify}),
+        page==="admin"&&cu.role==="admin"&&h(Admin,{cu:cu,users:users,setUsers:setUsers,pws:pws,setPws:setPws,tasks:tasks,anns:anns,meets:meets,msgs:msgs,setMsgs:setMsgs,notify:notify}))),
+    h(Notif,{msg:notif}));
+}
 
-        <div style={S.topRight}>
-          <div style={S.ubadge}>
-            <Avatar initials={cu.initials} color={cu.color} />
-            <span style={S.uname}>{cu.name}</span>
-            <span style={S.urole(isAdmin(cu))}>{isAdmin(cu)?"Admin":"Zaměstnanec"}</span>
-          </div>
-          <button style={S.logoutBtn} onClick={handleLogout}>Odhlásit</button>
-        </div>
-      </div>
+// ── DASHBOARD ────────────────────────────────────────
+function Dash({cu,users,tasks,msgs,contacts,anns,meets}){
+  var myT=tasks.filter(function(t){return !t.done&&(cu.role==="admin"||t.who.toLowerCase().includes(cu.name.split(" ")[0].toLowerCase()));});
+  var unread=contacts.filter(function(c){return(msgs[ckey(cu.login,c.login)]||[]).some(function(m){return m.from!==cu.login;});}).length;
+  var stats=cu.role==="admin"
+    ?[{l:"Zaměstnanců",v:Object.values(users).filter(function(u){return u.role!=="admin"&&u.active;}).length,s:"aktivních",icon:"👥"},
+      {l:"Otevřených úkolů",v:tasks.filter(function(t){return !t.done;}).length,s:"celkem",icon:"📋"},
+      {l:"Nové zprávy",v:unread,s:"konverzací",icon:"💬"},
+      {l:"Schůze",v:meets.length,s:"naplánováno",icon:"🤝"}]
+    :[{l:"Moje úkoly",v:myT.length,s:"čeká na splnění",icon:"📋"},
+      {l:"Nové zprávy",v:unread,s:"nepřečtených",icon:"💬"},
+      {l:"Oznámení",v:anns.length,s:"celkem",icon:"📢"}];
+  return h("div",null,
+    h("div",{style:{background:"linear-gradient(135deg,"+G+" 0%,"+ST+" 55%,#1a3d1a 100%)",
+      borderRadius:24,padding:"2.25rem 2.5rem",color:"white",marginBottom:"1.75rem",
+      boxShadow:"0 8px 32px rgba(45,90,39,0.25)",position:"relative",overflow:"hidden"}},
+      h("div",{style:{position:"absolute",right:"2rem",top:"50%",transform:"translateY(-50%)",
+        fontSize:"6rem",opacity:0.1,lineHeight:1}},"🌿"),
+      h("h2",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"1.9rem",margin:"0 0 0.4rem",color:"white"}},"Dobrý den, "+cu.name.split(" ")[0]+"! 👋"),
+      h("p",{style:{opacity:0.85,fontSize:"0.92rem",margin:0,color:"white",fontWeight:300}},"Dnes je "+today()+" · Vaše směna: "+cu.shift)),
+    h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:"1rem",marginBottom:"1.75rem"}},
+      stats.map(function(s){
+        return h("div",{key:s.l,style:{background:CR,border:"1px solid rgba(58,125,68,0.08)",borderRadius:20,
+          padding:"1.4rem 1.5rem",boxShadow:"0 2px 4px "+SH+", 0 6px 20px rgba(45,90,39,0.06)"}},
+          h("div",{style:{fontSize:"1.5rem",marginBottom:"0.4rem"}},s.icon),
+          h("div",{style:{fontSize:"0.72rem",color:"#8a9a8a",textTransform:"uppercase",letterSpacing:"0.9px",fontWeight:700}},s.l),
+          h("div",{style:{fontSize:"2.1rem",fontWeight:700,color:ST,lineHeight:1,margin:"0.25rem 0 0.2rem"}},s.v),
+          h("div",{style:{fontSize:"0.78rem",color:"#a0a8a0"}},s.s));
+      })),
+    h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1.5rem"}},
+      h("div",{style:SCARD},
+        h("div",{style:SCARDTIT},"📋 Moje úkoly"),
+        myT.length===0&&h("div",{style:EMPTY},h("div",{style:{fontSize:"2.5rem",marginBottom:"0.5rem"}},"🎉"),"Žádné úkoly – máš volno!"),
+        myT.slice(0,5).map(function(t){
+          return h("div",{key:t._id||t.id,style:{display:"flex",alignItems:"center",gap:"0.75rem",
+            padding:"0.6rem 0",borderBottom:"1px solid rgba(58,125,68,0.07)"}},
+            h("div",{style:{width:10,height:10,borderRadius:"50%",flexShrink:0,
+              background:t.pri==="high"?"#ef4444":t.pri==="medium"?"#f59e0b":G}}),
+            h("div",{style:{flex:1,fontSize:"0.88rem"}},t.name),
+            h("div",{style:{fontSize:"0.74rem",color:"#a0a8a0",flexShrink:0}},t.date));
+        })),
+      h("div",{style:SCARD},
+        h("div",{style:SCARDTIT},"💬 Poslední zprávy"),
+        contacts.length===0&&h("div",{style:EMPTY},"Žádné zprávy"),
+        contacts.map(function(c){
+          var last=(msgs[ckey(cu.login,c.login)]||[]).slice(-1)[0];
+          if(!last)return null;
+          return h("div",{key:c.login,style:{display:"flex",alignItems:"center",gap:"0.75rem",
+            padding:"0.6rem 0",borderBottom:"1px solid rgba(58,125,68,0.07)"}},
+            h(Av,{ini:c.initials,color:c.color,size:32}),
+            h("div",{style:{flex:1,minWidth:0}},
+              h("div",{style:{fontSize:"0.88rem",fontWeight:500}},c.name.split(" ")[0]),
+              h("div",{style:{fontSize:"0.76rem",color:"#a0a8a0",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},last.text)),
+            h("div",{style:{fontSize:"0.72rem",color:"#c0c8c0",flexShrink:0}},last.time));
+        }))));
+}
 
-      <div style={{display:"flex",minHeight:"calc(100vh - 64px)"}}>
-        {/* LEVÉ MENU */}
-        <div style={S.sidebar}>
-          <div style={S.slabel}>Hlavní</div>
-          <button style={S.nbtn(page==="dashboard")} onClick={()=>setPage("dashboard")}>🏠 Nástěnka</button>
-          <button style={S.nbtn(page==="tasks")} onClick={()=>setPage("tasks")}>📋 Seznam úkolů</button>
-          <button style={S.nbtn(page==="chat")} onClick={()=>setPage("chat")}>💬 Interní chat</button>
-          <button style={S.nbtn(page==="meetings")} onClick={()=>setPage("meetings")}>📅 Schůzky & Akce</button>
-          
-          <div style={S.slabel}>Osobní</div>
-          <button style={S.nbtn(page==="myattendance")} onClick={()=>setPage("myattendance")}>🕒 Moje docházka</button>
-          
-          {canAccessAdmin(cu) && (
-            <>
-              <div style={S.slabel}>Administrace</div>
-              <button style={S.nbtn(page==="users")} onClick={()=>setPage("users")}>👥 Správa zaměstnanců</button>
-              <button style={S.nbtn(page==="allattendance")} onClick={()=>setPage("allattendance")}>📊 Přehled docházky</button>
-            </>
-          )}
+// ── ZPRÁVY ────────────────────────────────────────────
+function Msgs({cu,users,msgs,setMsgs,contacts,chat,setChat}){
+  var _useState=useState(""),text=_useState[0],setText=_useState[1];
+  var endRef=useRef();
+  var key=chat?ckey(cu.login,chat):null;
+  var thread=key?(msgs[key]||[]):[];
+  useEffect(function(){if(endRef.current)endRef.current.scrollIntoView({behavior:"smooth"});},[chat,msgs]);
+  function send(){
+    if(!text.trim()||!chat)return;
+    var k=ckey(cu.login,chat);
+    var newMsg={from:cu.login,text:text.trim(),time:ntime(),ts:Date.now()};
+    var updated=(msgs[k]||[]).concat([newMsg]);
+    fsSet("messages",k,{msgs:updated});
+    setMsgs(function(p){return Object.assign({},p,{[k]:updated});});
+    setText("");
+  }
+  return h("div",{style:{display:"grid",gridTemplateColumns:"230px 1fr",gap:"1.5rem",height:"calc(100vh - 140px)"}},
+    h("div",{style:{background:CR,border:"1px solid rgba(58,125,68,0.09)",borderRadius:22,padding:"1.25rem",overflowY:"auto",boxShadow:"0 2px 8px "+SH}},
+      h("div",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"1.15rem",color:ST,marginBottom:"1.1rem",paddingBottom:"0.75rem",borderBottom:"1px solid rgba(58,125,68,0.1)"}},"💬 Konverzace"),
+      contacts.map(function(c){
+        var k=ckey(cu.login,c.login);
+        var last=(msgs[k]||[]).slice(-1)[0];
+        var hasUnread=(msgs[k]||[]).some(function(m){return m.from!==cu.login;});
+        return h("div",{key:c.login,style:{display:"flex",alignItems:"center",gap:"0.75rem",
+          padding:"0.75rem 0.85rem",borderRadius:14,cursor:"pointer",
+          background:chat===c.login?G100:"transparent",marginBottom:3,transition:"background 0.15s"},
+          onClick:function(){setChat(c.login);}},
+          h("div",{style:{position:"relative"}},
+            h(Av,{ini:c.initials,color:c.color,size:38}),
+            hasUnread&&chat!==c.login&&h("div",{style:{position:"absolute",top:0,right:0,width:10,height:10,borderRadius:"50%",background:G,border:"2px solid "+CR}})),
+          h("div",{style:{minWidth:0}},
+            h("div",{style:{fontWeight:600,fontSize:"0.9rem",color:ST}},c.name.split(" ")[0]),
+            h("div",{style:{fontSize:"0.75rem",color:"#9aa09a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:130}},last?last.text:"Začněte konverzaci")));
+      })),
+    h("div",{style:{background:CR,border:"1px solid rgba(58,125,68,0.09)",borderRadius:22,padding:"1.5rem",
+      display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 2px 8px "+SH}},
+      h("div",{style:{paddingBottom:"1rem",borderBottom:"1px solid rgba(58,125,68,0.1)",marginBottom:"0.75rem",display:"flex",alignItems:"center",gap:"1rem"}},
+        chat&&h(Av,{ini:users[chat]&&users[chat].initials||"?",color:users[chat]&&users[chat].color||G,size:40}),
+        h("div",null,
+          h("div",{style:{fontFamily:"'DM Serif Display',serif",fontSize:"1.15rem",color:ST}},chat?users[chat]&&users[chat].name:"Vyberte konverzaci"),
+          chat&&users[chat]&&h("div",{style:{fontSize:"0.78rem",color:"#9aa09a",marginTop:2}},users[chat].pos))),
+      h("div",{style:{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:"1rem",padding:"0.5rem 0",minHeight:0}},
+        !chat&&h("div",{style:Object.assign({},EMPTY,{margin:"auto"})},h("div",{style:{fontSize:"3rem",marginBottom:"0.75rem"}},"💬"),"Vyberte kontakt a začněte psát."),
+        thread.map(function(m,i){
+          var mine=m.from===cu.login;
+          var s=users[m.from];
+          if(!s)return null;
+          return h("div",{key:i,style:{display:"flex",flexDirection:"column",alignItems:mine?"flex-end":"flex-start"}},
+            !mine&&h("div",{style:{fontSize:"0.72rem",color:"#9aa09a",marginBottom:4,paddingLeft:40}},s.name.split(" ")[0]),
+            h("div",{style:{display:"flex",alignItems:"flex-end",gap:"0.5rem",flexDirection:mine?"row-reverse":"row"}},
+              h(Av,{ini:s.initials,color:s.color,size:30}),
+              h("div",null,
+                h("div",{style:{maxWidth:"68%",padding:"0.7rem 1rem",borderRadius:18,fontSize:"0.9rem",lineHeight:1.55,
+                  background:mine?"linear-gradient(135deg,"+G+","+ST+")":G50,color:mine?"white":"#2a2a2a",
+                  borderBottomRightRadius:mine?4:18,borderBottomLeftRadius:mine?18:4,
+                  boxShadow:mine?"0 3px 12px rgba(58,125,68,0.25)":"0 1px 4px rgba(0,0,0,0.06)"}},m.text),
+                h("div",{style:{fontSize:"0.7rem",color:"#b0b8b0",marginTop:4,textAlign:mine?"right":"left",paddingRight:4}},m.time))));
+        }),
+        h("div",{ref:endRef})),
+      h("div",{style:{display:"flex",gap:"0.75rem",alignItems:"flex-end",borderTop:"1px solid rgba(58,125,68,0.1)",paddingTop:"1rem",marginTop:"0.5rem"}},
+        h("textarea",{style:{flex:1,padding:"0.75rem 1rem",border:"1.5px solid rgba(58,125,68,0.18)",borderRadius:14,fontFamily:"'DM Sans',sans-serif",fontSize:"0.9rem",resize:"none",outline:"none",background:SA,maxHeight:120,boxSizing:"border-box",color:"#2a2a2a"},
+          value:text,onChange:function(e){setText(e.target.value);},placeholder:"Napište zprávu… (Enter = odeslat)",rows:1,
+          onKeyDown:function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}}),
+        h("button",{style:{width:46,height:46,borderRadius:13,background:"linear-gradient(135deg,"+G+","+ST+")",border:"none",color:"white",cursor:"pointer",fontSize:"1.2rem",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,boxShadow:"0 3px 14px rgba(58,125,68,0.32)"},onClick:send},"➤"))));
+}
 
-          <div style={{marginTop:"3rem",padding:"0 0.5rem",fontSize:"0.72rem",color:"#a0aea0",lineHeight:1.4}}>
-            <strong>Provoz systému:</strong><br/>
-            Data se ukládají v reálném čase. Všichni přihlášení vidí změny okamžitě.
-          </div>
-        </div>
+// ── ÚKOLY ────────────────────────────────────────────
+function Tasks({cu,tasks,setTasks,notify}){
+  var _s=useState(false),show=_s[0],setShow=_s[1];
+  var _n=useState(""),name=_n[0],setName=_n[1];
+  var _w=useState(""),who=_w[0],setWho=_w[1];
+  var _p=useState("medium"),pri=_p[0],setPri=_p[1];
+  var _d=useState(ndate()),date=_d[0],setDate=_d[1];
+  var _de=useState(""),desc=_de[0],setDesc=_de[1];
+  var list=cu.role==="admin"?tasks:tasks.filter(function(t){return t.who&&t.who.toLowerCase().includes(cu.name.split(" ")[0].toLowerCase());});
+  function add(){
+    if(!name.trim()){notify("Zadejte název úkolu");return;}
+    var id=uid();
+    var task={id:id,name:name,who:who||"Všichni",pri:pri,date:date,done:false,desc:desc,createdAt:Date.now()};
+    fsSet("tasks",id,task);
+    setName("");setWho("");setDesc("");setShow(false);notify("✅ Úkol přidán");
+  }
+  function del(t){
+    fsDel("tasks",t._id||t.id);
+    notify("🗑️ Úkol smazán");
+  }
+  function toggle(t){
+    var id=t._id||t.id;
+    fsSet("tasks",id,{done:!t.done});
+  }
+  return h("div",null,
+    h("div",{style:PAGETIT},"📋 Úkoly",cu.role==="admin"&&h(Btn,{onClick:function(){setShow(function(s){return !s;})}},"+ Přidat úkol")),
+    show&&h("div",{style:ADDFORM},
+      h("div",{style:{fontWeight:700,fontSize:"1rem",color:ST,marginBottom:"1.1rem"}},"Nový úkol"),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h(Inp,{val:name,set:setName,ph:"Název úkolu"}),
+        h(Inp,{val:who,set:setWho,ph:"Přiřadit komu"})),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h(Sel,{val:pri,set:setPri,opts:[{v:"high",l:"🔴 Vysoká priorita"},{v:"medium",l:"🟡 Střední priorita"},{v:"low",l:"🟢 Nízká priorita"}]}),
+        h("input",{style:INP,type:"date",value:date,onChange:function(e){setDate(e.target.value);}})),
+      h("div",{style:{marginBottom:"1rem"}},h(Inp,{val:desc,set:setDesc,ph:"Popis (volitelně)"})),
+      h("div",{style:{display:"flex",gap:"0.5rem"}},
+        h(Btn,{onClick:add},"Přidat"),
+        h(Btn,{t:"outline",onClick:function(){setShow(false);}},"Zrušit"))),
+    list.length===0&&h("div",{style:Object.assign({},EMPTY,{marginTop:"2rem"})},h("div",{style:{fontSize:"2.5rem",marginBottom:"0.5rem"}},"📋"),"Žádné úkoly"),
+    h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:"1.1rem"}},
+      list.map(function(t){
+        return h("div",{key:t._id||t.id,style:{background:CR,border:"1px solid rgba(58,125,68,0.09)",
+          borderLeft:"4px solid "+(t.pri==="high"?"#ef4444":t.pri==="medium"?"#f59e0b":G),
+          borderRadius:18,padding:"1.3rem",boxShadow:"0 2px 8px "+SH,opacity:t.done?0.5:1,transition:"opacity 0.2s"}},
+          h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"start",gap:"0.5rem",marginBottom:"0.6rem"}},
+            h("div",{style:{fontWeight:600,fontSize:"0.93rem",textDecoration:t.done?"line-through":"none",color:t.done?"#9aa09a":"#2a2a2a"}},t.name),
+            cu.role==="admin"&&h(Btn,{t:"danger",sm:true,onClick:function(){del(t);}},"✕")),
+          t.desc&&h("div",{style:{fontSize:"0.8rem",color:"#9aa09a",marginBottom:"0.6rem",lineHeight:1.5}},t.desc),
+          h("div",{style:{display:"flex",gap:"0.4rem",flexWrap:"wrap",marginBottom:"0.9rem"}},
+            h(Bdg,{t:t.pri==="high"?"red":t.pri==="medium"?"orange":"green"},t.pri==="high"?"🔴 Vysoká":t.pri==="medium"?"🟡 Střední":"🟢 Nízká"),
+            h(Bdg,{t:"blue"},"👤 "+t.who),
+            h(Bdg,null,"📅 "+t.date)),
+          h("label",{style:{display:"flex",alignItems:"center",gap:"0.5rem",fontSize:"0.85rem",cursor:"pointer",color:"#5a6a5a"}},
+            h("input",{type:"checkbox",checked:!!t.done,onChange:function(){toggle(t);}}," Hotovo")));
+      })));
+}
 
-        {/* HLAVNÍ OBSAH */}
-        <div style={S.content}>
-          
-          {/* 1. NÁSTĚNKA */}
-          {page==="dashboard" && (
-            <div>
-              <div style={S.welcome}>
-                <h2 style={S.wh2}>Krásný den, {cu.name}! ☀️</h2>
-                <p style={S.wp}>Dnes je {todayLabel()}. Vítejte v interním systému vaší zahrady.</p>
-              </div>
+// ── DOCHÁZKA ─────────────────────────────────────────
+function Att({cu,att,setAtt,inok,setInok,notify}){
+  var _em=useState(false),em=_em[0],setEm=_em[1];
+  var _am=useState(false),am=_am[0],setAm=_am[1];
+  var _ei=useState(null),ei=_ei[0],setEi=_ei[1];
+  var _ed=useState(""),ed=_ed[0],setEd=_ed[1];
+  var _ein=useState(""),ein=_ein[0],setEin=_ein[1];
+  var _eo=useState(""),eout=_eo[0],setEout=_eo[1];
+  var _es=useState("ok"),est=_es[0],setEst=_es[1];
+  var _nd=useState(ndate()),nd=_nd[0],setNd=_nd[1];
+  var _ni=useState(""),nin=_ni[0],setNin=_ni[1];
+  var _no=useState(""),nout=_no[0],setNout=_no[1];
+  var _ns=useState("ok"),nst=_ns[0],setNst=_ns[1];
+  var sOpts=[{v:"ok",l:"Přítomen"},{v:"late",l:"Pozdní příchod"},{v:"absence",l:"Absence"}];
+  function openE(i){var a=att[i];setEi(i);setEd(a.date);setEin(a.tin||"");setEout(a.tout||"");setEst(a.status);setEm(true);}
+  function saveE(){
+    var id=att[ei]._id||att[ei].id||uid();
+    fsSet("attendance",id,{date:ed,tin:ein,tout:eout,status:est});
+    setEm(false);notify("✅ Docházka upravena");
+  }
+  function delE(){
+    var id=att[ei]._id||att[ei].id;
+    if(id)fsDel("attendance",id);
+    setEm(false);notify("🗑️ Smazáno");
+  }
+  function addR(){
+    if(!nd){notify("Zadejte datum");return;}
+    var id=uid();
+    fsSet("attendance",id,{date:nd,tin:nin,tout:nout,status:nst});
+    setNin("");setNout("");setAm(false);notify("✅ Záznam přidán");
+  }
+  function checkIn(){
+    var t=ntime(),d=ndate(),id=uid();
+    fsSet("attendance",id,{date:d,tin:t,tout:"",status:"ok"});
+    setInok(true);notify("✅ Příchod v "+t);
+  }
+  function checkOut(){
+    var t=ntime();
+    var todayRec=att.find(function(a){return a.date===ndate();});
+    if(todayRec){var id=todayRec._id||todayRec.id;if(id)fsSet("attendance",id,{tout:t});}
+    setInok(false);notify("🏠 Odchod v "+t);
+  }
+  return h("div",null,
+    h("div",{style:PAGETIT},"📅 Docházka",
+      h("div",{style:{display:"flex",gap:"0.75rem",flexWrap:"wrap"}},
+        !inok&&h(Btn,{t:"outline",onClick:checkIn},"✅ Příchod"),
+        inok&&h(Btn,{t:"outline",onClick:checkOut},"🏠 Odchod"),
+        cu.role==="admin"&&h(Btn,{onClick:function(){setAm(true);}},"+ Přidat záznam"))),
+    h("div",{style:Object.assign({},SCARD,{marginBottom:"1.5rem"})},
+      h("div",{style:{display:"flex",gap:"1.5rem",alignItems:"center"}},
+        h(Av,{ini:cu.initials,color:cu.color,size:56}),
+        h("div",null,
+          h("div",{style:{fontWeight:700,fontSize:"1.1rem",marginBottom:"0.2rem"}},cu.name),
+          h("div",{style:{color:"#8a9a8a",fontSize:"0.85rem",marginBottom:"0.4rem"}},cu.pos),
+          h("span",{style:TPILL},cu.shift)))),
+    h("div",{style:SCARD},
+      h("div",{style:SCARDTIT},"Záznamy docházky"),
+      h("div",{style:{overflowX:"auto",borderRadius:14,border:"1px solid rgba(58,125,68,0.1)"}},
+        h("table",{style:{width:"100%",borderCollapse:"collapse"}},
+          h("thead",null,h("tr",null,
+            h("th",{style:TH},"Datum"),h("th",{style:TH},"Příchod"),h("th",{style:TH},"Odchod"),
+            h("th",{style:TH},"Odpracováno"),h("th",{style:TH},"Stav"),
+            cu.role==="admin"&&h("th",{style:TH},"Akce"))),
+          h("tbody",null,att.map(function(a,i){
+            return h("tr",{key:a._id||i},
+              h("td",{style:TD},a.date),
+              h("td",{style:TD},a.tin?h("span",{style:TPILL},a.tin):"—"),
+              h("td",{style:TD},a.tout?h("span",{style:TPILL},a.tout):"—"),
+              h("td",{style:TD},h("strong",null,hrs(a.tin,a.tout))),
+              h("td",{style:TD},h(Bdg,{t:a.status==="ok"?"green":a.status==="late"?"orange":"red"},
+                a.status==="ok"?"✅ Přítomen":a.status==="late"?"⏰ Pozdní":"❌ Absence")),
+              cu.role==="admin"&&h("td",{style:TD},h(Btn,{t:"outline",sm:true,onClick:function(){openE(i);}},"✏️")));
+          }))))),
+    h(Modal,{open:em,onClose:function(){setEm(false);},title:"✏️ Upravit záznam"},
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h("input",{style:INP,type:"date",value:ed,onChange:function(e){setEd(e.target.value);}}),
+        h(Sel,{val:est,set:setEst,opts:sOpts})),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h("input",{style:INP,type:"time",value:ein,onChange:function(e){setEin(e.target.value);}}),
+        h("input",{style:INP,type:"time",value:eout,onChange:function(e){setEout(e.target.value);}})),
+      h("div",{style:{display:"flex",gap:"0.75rem",marginTop:"0.5rem"}},
+        h(Btn,{onClick:saveE},"Uložit"),h(Btn,{t:"danger",onClick:delE},"Smazat"),h(Btn,{t:"outline",onClick:function(){setEm(false);}},"Zrušit"))),
+    h(Modal,{open:am,onClose:function(){setAm(false);},title:"➕ Přidat záznam"},
+      h("div",{style:{marginBottom:"1rem"}},h("input",{style:INP,type:"date",value:nd,onChange:function(e){setNd(e.target.value);}})),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h("input",{style:INP,type:"time",value:nin,onChange:function(e){setNin(e.target.value);}}),
+        h("input",{style:INP,type:"time",value:nout,onChange:function(e){setNout(e.target.value);}})),
+      h("div",{style:{marginBottom:"1rem"}},h(Sel,{val:nst,set:setNst,opts:sOpts})),
+      h("div",{style:{display:"flex",gap:"0.75rem"}},
+        h(Btn,{onClick:addR},"Přidat"),h(Btn,{t:"outline",onClick:function(){setAm(false);}},"Zrušit"))));
+}
 
-              {/* Rychlá docházka */}
-              <div style={S.scard}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"1rem"}}>
-                  <div>
-                    <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.15rem",color:"#2d5a27"}}>Zaznamenat dnešní pracovní dobu</h3>
-                    <p style={{fontSize:"0.82rem",color:"#6b7a6b",marginTop:2}}>Vaše plánovaná směna: <strong>{cu.shift||"Není určena"}</strong></p>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:"1.5rem"}}>
-                    <div style={{textAlign:"right"}}>
-                      <div style={{fontSize:"0.75rem",color:"#8a9a8a",textTransform:"uppercase"}}>Stav:</div>
-                      <div style={{fontSize:"1rem",fontWeight:600,color:checkedIn?"#3a7d44":"#dc2626"}}>{checkedIn?"🟢 Jste v práci":"🔴 Odhlášen(a) – nejste v práci"}</div>
-                    </div>
-                    <Btn type={checkedIn?"danger":"primary"} onClick={toggleCheckIn}>
-                      {checkedIn?"🔴 Označit ODCHOD z práce":"🟢 Označit PŘÍCHOD do práce"}
-                    </Btn>
-                  </div>
-                </div>
-              </div>
+// ── OZNÁMENÍ ─────────────────────────────────────────
+function Anns({cu,anns,setAnns,notify}){
+  var _s=useState(false),show=_s[0],setShow=_s[1];
+  var _t=useState(""),title=_t[0],setTitle=_t[1];
+  var _tx=useState(""),text=_tx[0],setText=_tx[1];
+  function add(){
+    if(!title.trim()||!text.trim()){notify("Vyplňte nadpis i text");return;}
+    var now=new Date();
+    var id=uid();
+    fsSet("announcements",id,{id:id,author:cu.name,title:title,text:text,
+      time:now.toLocaleDateString("cs-CZ")+" "+now.toTimeString().slice(0,5),createdAt:Date.now()});
+    setTitle("");setText("");setShow(false);notify("📢 Oznámení zveřejněno");
+  }
+  function del(a){
+    var id=a._id||a.id;
+    if(id)fsDel("announcements",id);
+    notify("🗑️ Smazáno");
+  }
+  return h("div",null,
+    h("div",{style:PAGETIT},"📢 Oznámení",cu.role==="admin"&&h(Btn,{onClick:function(){setShow(function(s){return !s;});}},"+ Přidat oznámení")),
+    show&&h("div",{style:ADDFORM},
+      h("div",{style:{fontWeight:700,marginBottom:"1rem",color:ST}},"Nové oznámení"),
+      h("div",{style:{marginBottom:"1rem"}},h(Inp,{val:title,set:setTitle,ph:"Nadpis oznámení"})),
+      h("div",{style:{marginBottom:"1rem"}},h("textarea",{style:Object.assign({},INP,{resize:"vertical"}),value:text,onChange:function(e){setText(e.target.value);},rows:3,placeholder:"Text oznámení…"})),
+      h("div",{style:{display:"flex",gap:"0.5rem"}},
+        h(Btn,{onClick:add},"Zveřejnit"),h(Btn,{t:"outline",onClick:function(){setShow(false);}},"Zrušit"))),
+    anns.length===0&&h("div",{style:Object.assign({},EMPTY,{marginTop:"2rem"})},h("div",{style:{fontSize:"2.5rem",marginBottom:"0.5rem"}},"📢"),"Žádná oznámení"),
+    anns.map(function(a){
+      return h("div",{key:a._id||a.id,style:{background:CR,border:"1px solid rgba(58,125,68,0.09)",
+        borderLeft:"4px solid "+G,borderRadius:16,padding:"1.35rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 2px 8px "+SH}},
+        h("div",{style:{fontSize:"0.75rem",color:"#9aa09a",marginBottom:"0.4rem",display:"flex",alignItems:"center",gap:"0.75rem"}},
+          "📢 "+a.author+" · "+a.time,
+          cu.role==="admin"&&h(Btn,{t:"danger",sm:true,onClick:function(){del(a);}},"✕")),
+        h("div",{style:{fontWeight:700,fontSize:"1rem",color:ST,marginBottom:"0.4rem"}},a.title),
+        h("div",{style:{fontSize:"0.9rem",lineHeight:1.65,color:"#3a3a3a"}},a.text));
+    }));
+}
 
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1.5rem",alignItems:"start",marginTop:"1.5rem"}}>
-                {/* Oznámení firmy */}
-                <div style={S.scard}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:"1rem"}}>
-                    <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.25rem",color:"#2d5a27"}}>📢 Firemní nástěnka</h3>
-                    {isAdmin(cu) && <span style={{fontSize:"0.8rem",color:"#8a9a8a"}}>Admin sekce níže</span>}
-                  </div>
-                  
-                  <div style={{maxHeight:320,overflowY:"auto",paddingRight:5}}>
-                    {announcements.length===0 ? <div style={S.empty}>Žádná hlášení na nástěnce.</div> : 
-                      announcements.map(a=>(
-                        <div key={a.id} style={S.ann}>
-                          <div style={{display:"flex",justifyContent:"space-between",fontSize:"0.78rem",color:"#8a9a8a",marginBottom:4}}>
-                            <span>✍️ {a.author}</span>
-                            <span>{a.time}</span>
-                          </div>
-                          <h4 style={{fontSize:"0.95rem",fontWeight:600,color:"#1a3d1a",marginBottom:4}}>{a.title}</h4>
-                          <p style={{fontSize:"0.86rem",color:"#3a3a3a",whiteSpace:"pre-wrap",lineHeight:1.45}}>{a.text}</p>
-                          {isAdmin(cu) && (
-                            <div style={{textAlign:"right",marginTop:6}}>
-                              <button style={{background:"none",border:"none",color:"#dc2626",fontSize:"0.75rem",cursor:"pointer"}} onClick={()=>delAnn(a.id)}>❌ Smazat</button>
-                            </div>
-                          )}
-                        </div>
-                      ))
-                    }
-                  </div>
+// ── SCHŮZE ────────────────────────────────────────────
+function Meets({cu,meets,setMeets,notify}){
+  var _s=useState(false),show=_s[0],setShow=_s[1];
+  var _t=useState(""),title=_t[0],setTitle=_t[1];
+  var _d=useState(ndate()),date=_d[0],setDate=_d[1];
+  var _ti=useState(""),time=_ti[0],setTime=_ti[1];
+  var _pl=useState(""),place=_pl[0],setPlace=_pl[1];
+  var _de=useState(""),desc=_de[0],setDesc=_de[1];
+  var _at=useState("Všichni"),attendees=_at[0],setAttendees=_at[1];
+  function add(){
+    if(!title.trim()||!date){notify("Zadejte název a datum");return;}
+    var id=uid();
+    fsSet("meetings",id,{id:id,title:title,date:date,time:time,place:place,desc:desc,att:attendees,createdAt:Date.now()});
+    setTitle("");setTime("");setPlace("");setDesc("");setAttendees("Všichni");setShow(false);notify("🤝 Schůze přidána");
+  }
+  function del(m){
+    var id=m._id||m.id;
+    if(id)fsDel("meetings",id);
+    notify("🗑️ Smazáno");
+  }
+  return h("div",null,
+    h("div",{style:PAGETIT},"🤝 Schůze & Akce",cu.role==="admin"&&h(Btn,{onClick:function(){setShow(function(s){return !s;});}},"+ Přidat schůzi")),
+    show&&h("div",{style:ADDFORM},
+      h("div",{style:{fontWeight:700,marginBottom:"1rem",color:ST}},"Nová schůze / akce"),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h(Inp,{val:title,set:setTitle,ph:"Název schůze nebo akce"}),
+        h("input",{style:INP,type:"date",value:date,onChange:function(e){setDate(e.target.value);}})),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h("input",{style:INP,type:"time",value:time,onChange:function(e){setTime(e.target.value);}}),
+        h(Inp,{val:place,set:setPlace,ph:"Místo konání"})),
+      h("div",{style:{marginBottom:"1rem"}},h("textarea",{style:Object.assign({},INP,{resize:"vertical"}),value:desc,onChange:function(e){setDesc(e.target.value);},rows:2,placeholder:"Popis / program schůze…"})),
+      h("div",{style:{marginBottom:"1rem"}},h(Inp,{val:attendees,set:setAttendees,ph:"Účastníci (např. Všichni)"})),
+      h("div",{style:{display:"flex",gap:"0.5rem"}},
+        h(Btn,{onClick:add},"Přidat"),h(Btn,{t:"outline",onClick:function(){setShow(false);}},"Zrušit"))),
+    meets.length===0&&h("div",{style:Object.assign({},EMPTY,{marginTop:"2rem"})},h("div",{style:{fontSize:"2.5rem",marginBottom:"0.5rem"}},"🤝"),"Žádné schůze"),
+    meets.map(function(m){
+      return h("div",{key:m._id||m.id,style:{background:CR,border:"1px solid rgba(58,125,68,0.09)",
+        borderLeft:"4px solid #3b82f6",borderRadius:16,padding:"1.35rem 1.5rem",marginBottom:"0.85rem",boxShadow:"0 2px 8px "+SH}},
+        h("div",{style:{fontSize:"0.75rem",color:"#9aa09a",marginBottom:"0.4rem",display:"flex",alignItems:"center",gap:"0.75rem",flexWrap:"wrap"}},
+          "📅 "+m.date,m.time?" · ⏰ "+m.time:"",m.place?" · 📍 "+m.place:"",
+          cu.role==="admin"&&h(Btn,{t:"danger",sm:true,onClick:function(){del(m);}},"✕")),
+        h("div",{style:{fontWeight:700,fontSize:"1rem",color:"#1d4ed8",marginBottom:"0.4rem"}},m.title),
+        m.desc&&h("div",{style:{fontSize:"0.9rem",lineHeight:1.6,color:"#3a3a3a",marginBottom:"0.4rem"}},m.desc),
+        h("div",{style:{fontSize:"0.82rem",color:"#9aa09a"}},"👥 "+m.att));
+    }));
+}
 
-                  {isAdmin(cu) && (
-                    <div style={{marginTop:"1.5rem",paddingTop:"1.25rem",borderTop:"1px solid rgba(58,125,68,0.12)"}}>
-                      <h4 style={{fontSize:"0.82rem",fontWeight:700,color:"#2d5a27",textTransform:"uppercase",marginBottom:8}}>Napsat nové hlášení na nástěnku:</h4>
-                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                        <Inp value={aTitle} onChange={setATitle} placeholder="Předmět / titulek" />
-                        <textarea style={S.cinput} value={aTxt} onChange={e=>setATxt(e.target.value)} placeholder="Text hlášení pro všechny zaměstnance..." rows={3}/>
-                        <div style={{textAlign:"right"}}><Btn sm onClick={addAnn}>Publikovat hlášení</Btn></div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+// ── ADMIN ─────────────────────────────────────────────
+function Admin({cu,users,setUsers,pws,setPws,tasks,anns,meets,msgs,setMsgs,notify}){
+  var _am=useState(false),am=_am[0],setAm=_am[1];
+  var _em=useState(false),em=_em[0],setEm=_em[1];
+  var _el=useState(""),el=_el[0],setEl=_el[1];
+  var _nn=useState(""),nn=_nn[0],setNn=_nn[1];
+  var _nl=useState(""),nl=_nl[0],setNl=_nl[1];
+  var _np=useState(""),np=_np[0],setNp=_np[1];
+  var _npo=useState(""),npo=_npo[0],setNpo=_npo[1];
+  var _ns=useState(""),ns=_ns[0],setNs=_ns[1];
+  var _en=useState(""),en=_en[0],setEn=_en[1];
+  var _epo=useState(""),epo=_epo[0],setEpo=_epo[1];
+  var _es=useState(""),es=_es[0],setEs=_es[1];
+  var _ep=useState(""),ep=_ep[0],setEp=_ep[1];
+  var _bc=useState(""),bc=_bc[0],setBc=_bc[1];
+  var emps=Object.entries(users).filter(function(e){return e[0]!=="adam";});
+  var cols=["#3a7d44","#1a5fa8","#993556","#7c3aed","#c2410c"];
+  function addU(){
+    if(!nn.trim()||!nl.trim()||!np){notify("Vyplňte jméno, login a heslo");return;}
+    if(users[nl]){notify("Login již existuje");return;}
+    var pts=nn.split(" ");
+    var ini=(pts[0][0]+(pts[1]?pts[1][0]:"")).toUpperCase();
+    var col=cols[Object.keys(users).length%cols.length];
+    var newUser={name:nn,role:"employee",initials:ini,pos:npo||"Zahradník",shift:ns||"8:00–16:00",color:col,active:true};
+    fsSet("users",nl,newUser);
+    fsSet("passwords",nl,{pw:np});
+    setNn("");setNl("");setNp("");setNpo("");setNs("");setAm(false);notify("✅ "+nn+" přidán");
+  }
+  function openE(login){var u=users[login];setEl(login);setEn(u.name);setEpo(u.pos);setEs(u.shift);setEp("");setEm(true);}
+  function saveE(){
+    if(!en.trim()){notify("Zadejte jméno");return;}
+    var pts=en.split(" ");
+    var ini=(pts[0][0]+(pts[1]?pts[1][0]:"")).toUpperCase();
+    fsSet("users",el,{name:en,initials:ini,pos:epo,shift:es});
+    if(ep)fsSet("passwords",el,{pw:ep});
+    setEm(false);notify("✅ Zaměstnanec upraven");
+  }
+  function toggleActive(login,active){
+    fsSet("users",login,{active:!active});
+    notify(active?"🚫 Zaměstnanec deaktivován":"✅ Účet aktivován");
+  }
+  function bc_send(){
+    if(!bc.trim()){notify("Napište zprávu");return;}
+    var t=ntime();
+    Object.keys(users).filter(function(k){return k!=="adam";}).forEach(function(k){
+      var key=ckey("adam",k);
+      var updated=(msgs[key]||[]).concat([{from:"adam",text:"📡 "+bc,time:t,ts:Date.now()}]);
+      fsSet("messages",key,{msgs:updated});
+      setMsgs(function(p){return Object.assign({},p,{[key]:updated});});
+    });
+    setBc("");notify("📡 Zpráva odeslána všem zaměstnancům");
+  }
+  return h("div",null,
+    h("div",{style:PAGETIT},"⚙️ Admin panel"),
+    h("div",{style:SCARD},
+      h("div",{style:SCARDTIT},"👥 Správa zaměstnanců"),
+      h("div",{style:{marginBottom:"1.1rem"}},h(Btn,{onClick:function(){setAm(true);}},"+ Přidat zaměstnance")),
+      h("div",{style:{overflowX:"auto",borderRadius:14,border:"1px solid rgba(58,125,68,0.1)"}},
+        h("table",{style:{width:"100%",borderCollapse:"collapse"}},
+          h("thead",null,h("tr",null,
+            h("th",{style:TH},"Jméno"),h("th",{style:TH},"Pozice"),h("th",{style:TH},"Směna"),
+            h("th",{style:TH},"Stav"),h("th",{style:TH},"Akce"))),
+          h("tbody",null,emps.map(function(e){
+            var login=e[0],u=e[1];
+            return h("tr",{key:login},
+              h("td",{style:TD},h("div",{style:{display:"flex",alignItems:"center",gap:"0.7rem"}},
+                h(Av,{ini:u.initials,color:u.color,size:30}),
+                h("div",null,h("div",{style:{fontWeight:500}},u.name)))),
+              h("td",{style:TD},h("span",{style:{fontSize:"0.82rem",color:"#8a9a8a"}},u.pos)),
+              h("td",{style:TD},h("span",{style:TPILL},u.shift)),
+              h("td",{style:TD},h(Bdg,{t:u.active?"green":"red"},u.active?"✅ Aktivní":"🚫 Deaktivován")),
+              h("td",{style:TD},h("div",{style:{display:"flex",gap:"0.4rem",flexWrap:"wrap"}},
+                h(Btn,{t:"outline",sm:true,onClick:function(){openE(login);}},"✏️ Upravit"),
+                h(Btn,{t:"danger",sm:true,onClick:function(){toggleActive(login,u.active);}},u.active?"🚫 Vyhodit":"✅ Aktivovat"))));
+          }))))),
+    h("div",{style:SCARD},
+      h("div",{style:SCARDTIT},"📡 Zpráva všem zaměstnancům"),
+      h("textarea",{style:Object.assign({},INP,{marginBottom:"1rem",resize:"vertical"}),value:bc,
+        onChange:function(e){setBc(e.target.value);},rows:3,placeholder:"Napište zprávu pro všechny zaměstnance…"}),
+      h(Btn,{onClick:bc_send},"📡 Odeslat všem")),
+    h("div",{style:SCARD},
+      h("div",{style:SCARDTIT},"📊 Přehled systému"),
+      h("div",{style:{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:"1rem"}},
+        [{l:"Zaměstnanců",v:emps.length,icon:"👥"},
+         {l:"Aktivních",v:emps.filter(function(e){return e[1].active;}).length,icon:"✅"},
+         {l:"Otevř. úkolů",v:tasks.filter(function(t){return !t.done;}).length,icon:"📋"},
+         {l:"Splněno",v:tasks.filter(function(t){return t.done;}).length,icon:"🏆"},
+         {l:"Schůze",v:meets.length,icon:"🤝"},
+         {l:"Oznámení",v:anns.length,icon:"📢"}].map(function(s){
+          return h("div",{key:s.l,style:{background:SA,border:"1px solid rgba(58,125,68,0.1)",borderRadius:16,padding:"1.1rem 1.25rem"}},
+            h("div",{style:{fontSize:"1.4rem",marginBottom:"0.3rem"}},s.icon),
+            h("div",{style:{fontSize:"0.72rem",color:"#8a9a8a",textTransform:"uppercase",letterSpacing:"0.8px",fontWeight:700}},s.l),
+            h("div",{style:{fontSize:"1.8rem",fontWeight:700,color:ST,lineHeight:1,marginTop:"0.2rem"}},s.v));
+        }))),
+    h(Modal,{open:am,onClose:function(){setAm(false);},title:"➕ Přidat zaměstnance"},
+      h("div",{style:{marginBottom:"1rem"}},h(Inp,{val:nn,set:setNn,ph:"Celé jméno (Jana Nováková)"})),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h(Inp,{val:nl,set:setNl,ph:"Login (bez diakritiky)"}),
+        h(Inp,{val:np,set:setNp,ph:"Heslo",tp:"password"})),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h(Inp,{val:npo,set:setNpo,ph:"Pozice (Zahradník)"}),
+        h(Inp,{val:ns,set:setNs,ph:"Směna (8:00–16:00)"})),
+      h("div",{style:{display:"flex",gap:"0.75rem"}},
+        h(Btn,{onClick:addU},"Přidat"),h(Btn,{t:"outline",onClick:function(){setAm(false);}},"Zrušit"))),
+    h(Modal,{open:em,onClose:function(){setEm(false);},title:"✏️ Upravit zaměstnance"},
+      h("div",{style:{marginBottom:"1rem"}},h(Inp,{val:en,set:setEn,ph:"Celé jméno"})),
+      h("div",{style:{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}},
+        h(Inp,{val:epo,set:setEpo,ph:"Pozice"}),
+        h(Inp,{val:es,set:setEs,ph:"Směna"})),
+      h("div",{style:{marginBottom:"1rem"}},h(Inp,{val:ep,set:setEp,ph:"Nové heslo (prázdné = beze změny)",tp:"password"})),
+      h("div",{style:{display:"flex",gap:"0.75rem"}},
+        h(Btn,{onClick:saveE},"Uložit"),h(Btn,{t:"outline",onClick:function(){setEm(false);}},"Zrušit"))));
+}
 
-                {/* Moje dnešní úkoly */}
-                <div style={S.scard}>
-                  <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.25rem",color:"#2d5a27",marginBottom:"1rem"}}>📌 Moje aktivní úkoly</h3>
-                  <div style={{display:"flex",flexDirection:"column",gap:"0.75rem"}}>
-                    {tasks.filter(t=>!t.done && (t.who==="Všichni" || t.who.toLowerCase()===cu.login || t.who===cu.name)).length===0 ? 
-                      <div style={S.empty}>🎉 Skvělé! Nemáte žádné resty, vše je hotovo.</div> :
-                      tasks.filter(t=>!t.done && (t.who==="Všichni" || t.who.toLowerCase()===cu.login || t.who===cu.name)).map(t=>(
-                        <div key={t.id} style={{background:"#fff",padding:"0.85rem 1rem",borderRadius:12,border:"1px solid rgba(58,125,68,0.08)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                          <div>
-                            <div style={{fontSize:"0.88rem",fontWeight:600}}>{t.name}</div>
-                            {t.desc && <div style={{fontSize:"0.78rem",color:"#6b7a6b",marginTop:2}}>{t.desc}</div>}
-                          </div>
-                          <Btn type="outline" sm onClick={()=>toggleTask(t.id)}>✓ Hotovo</Btn>
-                        </div>
-                      ))
-                    }
-                  </div>
-                  <div style={{marginTop:"1.5rem",textAlign:"center"}}>
-                    <Btn type="outline" onClick={()=>setPage("tasks")} style={{width:"100%",justifyContent:"center"}}>Zobrazit kompletní seznam úkolů →</Btn>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 2. SEZNAM ÚKOLŮ */}
-          {page==="tasks" && (
-            <div>
-              <div style={S.pageTitle}>
-                <div>📋 Kompletní seznam úkolů</div>
-                {isAdmin(cu) && <span style={{fontSize:"0.8rem",fontWeight:400,color:"#6b7a6b"}}>Nové úkoly zadáváte zde</span>}
-              </div>
-
-              {/* Formulář pro přidání úkolu - pouze admin */}
-              {isAdmin(cu) && (
-                <div style={S.addForm}>
-                  <h3 style={{fontSize:"0.9rem",fontWeight:700,textTransform:"uppercase",color:"#2d5a27",marginBottom:"1rem"}}>➕ Zadat nový úkol pro tým</h3>
-                  <div style={{...S.formRow,gridTemplateColumns:"2fr 1fr 1fr 1fr"}}>
-                    <div>
-                      <div style={S.flabel}>Název úkolu</div>
-                      <Inp value={tName} onChange={setTName} placeholder="např. Pokosit trávník u skleníku" />
-                    </div>
-                    <div>
-                      <div style={S.flabel}>Kdo úkol splní?</div>
-                      <Sel value={tWho} onChange={setTWho} options={[{v:"Všichni",l:"👥 Všichni"}, ...Object.entries(users).map(([k,u])=>({v:u.name,l:u.name}))]} />
-                    </div>
-                    <div>
-                      <div style={S.flabel}>Priorita</div>
-                      <Sel value={tPri} onChange={setTPri} options={[{v:"low",l:"🟢 Nízká"},{v:"medium",l:"🟡 Střední"},{v:"high",l:"🔴 Vysoká"}]} />
-                    </div>
-                    <div>
-                      <div style={S.flabel}>Termín splnění</div>
-                      <Inp type="date" value={tDate} onChange={setTDate} />
-                    </div>
-                  </div>
-                  <div style={{marginBottom:"1rem"}}>
-                    <div style={S.flabel}>Detailní popis úkolu (nepovinné)</div>
-                    <Inp value={tDesc} onChange={setTDesc} placeholder="Bližší informace, kde najít nářadí, specifika práce..." />
-                  </div>
-                  <div style={{textAlign:"right"}}><Btn onClick={addTask}>Zadat úkol do systému</Btn></div>
-                </div>
-              )}
-
-              {/* Filtry / Přehled */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"2rem",alignItems:"start"}}>
-                {/* Aktivní úkoly */}
-                <div>
-                  <h3 style={{fontFamily:"'DM Serif Display',serif",fontSize:"1.2rem",color:"#b91c1c",marginBottom:"1rem"}}>⏳ Nesplněné úkoly ({tasks.filter(t=>!t.done).length})</h3>
-                  {tasks.filter(t=>!t.done).
+ReactDOM.render(h(App),document.getElementById("root"));
+</script>
+</body>
+</html>
